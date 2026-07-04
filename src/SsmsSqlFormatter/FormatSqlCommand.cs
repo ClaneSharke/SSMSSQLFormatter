@@ -120,7 +120,7 @@ namespace SsmsSqlFormatter
                         $"This script contains {result.CommentCount} comment(s). The rule-based engine may drop " +
                         "or move comments when reformatting.\r\n\r\n" +
                         "Continue anyway? (Tip: the AI engine preserves comments — switch under " +
-                        "Tools > Options > SQL Formatter.)",
+                        "Tools > Options > Format T-SQL Script.)",
                         "SQL Formatter",
                         MessageBoxButton.YesNo, MessageBoxImage.Warning);
                     if (proceed != MessageBoxResult.Yes) return;

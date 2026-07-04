@@ -23,7 +23,7 @@ namespace SsmsSqlFormatter.Formatting
 
             if (string.IsNullOrWhiteSpace(ai.ApiKey))
             {
-                result.ErrorMessage = "No Anthropic API key configured. Set it under Tools > Options > SQL Formatter > AI Engine.";
+                result.ErrorMessage = "No Anthropic API key configured. Set it under Tools > Options > Format T-SQL Script > AI Engine.";
                 return result;
             }
 
