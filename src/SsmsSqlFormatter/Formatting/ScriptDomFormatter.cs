@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
 using SsmsSqlFormatter.Options;
 
@@ -54,6 +55,9 @@ namespace SsmsSqlFormatter.Formatting
 
                 var generator = new Sql160ScriptGenerator(BuildOptions(options));
                 generator.GenerateScript(fragment, out string formatted);
+
+                if (options.PreserveComments && result.CommentCount > 0)
+                    formatted = ReinjectComments(sql, formatted);
 
                 formatted = PostProcess(formatted, options);
 
@@ -147,6 +151,186 @@ namespace SsmsSqlFormatter.Formatting
             }
 
             return g;
+        }
+
+        private class OrigItem
+        {
+            public bool IsComment;
+            public string Text;
+            public bool OwnLine;
+        }
+
+        /// <summary>
+        /// Puts the original script's comments back into the freshly formatted text.
+        /// Walks both token streams in parallel (case-insensitive, tolerant of
+        /// added/removed semicolons), attaching each comment to the same code it
+        /// preceded in the original: trailing comments stay at line ends, own-line
+        /// comments get their own line at the current indentation. If alignment
+        /// fails, ALL comments are appended under a banner - never silently dropped.
+        /// </summary>
+        private static string ReinjectComments(string originalSql, string formattedSql)
+        {
+            var parser = new TSql160Parser(initialQuotedIdentifiers: true);
+            TSqlFragment origFrag, fmtFrag;
+            IList<ParseError> err;
+            using (var r = new StringReader(originalSql)) origFrag = parser.Parse(r, out err);
+            using (var r = new StringReader(formattedSql)) fmtFrag = parser.Parse(r, out err);
+            if (origFrag?.ScriptTokenStream == null || fmtFrag?.ScriptTokenStream == null)
+                return formattedSql;
+
+            // Original stream reduced to code tokens + comments (with own-line flag).
+            var items = new List<OrigItem>();
+            bool newlineSinceCode = true;
+            foreach (var t in origFrag.ScriptTokenStream)
+            {
+                if (t.TokenType == TSqlTokenType.EndOfFile) continue;
+                if (t.TokenType == TSqlTokenType.WhiteSpace)
+                {
+                    if (t.Text != null && t.Text.IndexOf('\n') >= 0) newlineSinceCode = true;
+                }
+                else if (t.TokenType == TSqlTokenType.SingleLineComment ||
+                         t.TokenType == TSqlTokenType.MultilineComment)
+                {
+                    items.Add(new OrigItem { IsComment = true, Text = t.Text, OwnLine = newlineSinceCode });
+                }
+                else
+                {
+                    items.Add(new OrigItem { Text = t.Text });
+                    newlineSinceCode = false;
+                }
+            }
+            if (!items.Exists(i => i.IsComment)) return formattedSql;
+
+            var sb = new StringBuilder(formattedSql.Length + 256);
+            string ws = "";
+            int oi = 0;
+            var lost = new List<string>();
+
+            string IndentOf(string w)
+            {
+                int i = w.LastIndexOf('\n');
+                return i >= 0 ? w.Substring(i + 1) : "";
+            }
+
+            void EmitPendingComments()
+            {
+                bool ownLineMode = false;
+                string indent = IndentOf(ws);
+                while (oi < items.Count && items[oi].IsComment)
+                {
+                    var c = items[oi];
+                    oi++;
+                    if (!c.OwnLine && !ownLineMode && sb.Length > 0)
+                    {
+                        sb.Append(' ').Append(c.Text);   // trailing: stays on previous line
+                    }
+                    else
+                    {
+                        if (!ownLineMode)
+                        {
+                            if (sb.Length == 0) { /* very start of output */ }
+                            else if (ws.IndexOf('\n') >= 0) sb.Append(ws);
+                            else sb.Append(ws).Append('\n').Append(indent);
+                            ws = "";
+                            ownLineMode = true;
+                            sb.Append(c.Text);
+                        }
+                        else
+                        {
+                            sb.Append('\n').Append(indent).Append(c.Text);
+                        }
+                    }
+                }
+                if (ownLineMode)
+                {
+                    sb.Append('\n').Append(indent);
+                    ws = "";
+                }
+            }
+
+            string BannerFallback()
+            {
+                var rest = new StringBuilder();
+                for (int m = oi; m < items.Count; m++)
+                    if (items[m].IsComment) rest.Append('\n').Append(items[m].Text);
+                foreach (var lc in lost) rest.Append('\n').Append(lc);
+                if (rest.Length == 0) return formattedSql;
+                return formattedSql + "\n\n-- [SQL Formatter] comments from the original script:" + rest;
+            }
+
+            foreach (var tok in fmtFrag.ScriptTokenStream)
+            {
+                if (tok.TokenType == TSqlTokenType.EndOfFile) continue;
+                if (tok.TokenType == TSqlTokenType.WhiteSpace)
+                {
+                    ws += tok.Text ?? "";
+                    continue;
+                }
+
+                // Comments after a statement should land after its semicolon.
+                if (tok.TokenType != TSqlTokenType.Semicolon) EmitPendingComments();
+
+                if (oi < items.Count && !items[oi].IsComment)
+                {
+                    string expected = items[oi].Text ?? "";
+                    string current = tok.Text ?? "";
+                    if (string.Equals(current, expected, StringComparison.OrdinalIgnoreCase))
+                    {
+                        oi++;
+                    }
+                    else if (tok.TokenType == TSqlTokenType.Semicolon)
+                    {
+                        // generator-added semicolon: no counterpart in the original
+                    }
+                    else if (expected == ";")
+                    {
+                        oi++;  // original semicolon not emitted by the generator
+                        if (oi < items.Count && !items[oi].IsComment &&
+                            string.Equals(current, items[oi].Text ?? "", StringComparison.OrdinalIgnoreCase))
+                            oi++;
+                    }
+                    else
+                    {
+                        // Try to resync within a small window.
+                        int k = oi, hops = 0;
+                        bool found = false;
+                        while (k < items.Count && hops < 4)
+                        {
+                            if (!items[k].IsComment)
+                            {
+                                hops++;
+                                if (string.Equals(items[k].Text ?? "", current, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            k++;
+                        }
+                        if (found)
+                        {
+                            for (int m = oi; m < k; m++)
+                                if (items[m].IsComment) lost.Add(items[m].Text);
+                            oi = k + 1;
+                        }
+                        else
+                        {
+                            return BannerFallback();
+                        }
+                    }
+                }
+
+                sb.Append(ws);
+                ws = "";
+                sb.Append(tok.Text);
+            }
+
+            EmitPendingComments();
+            sb.Append(ws);
+            for (; oi < items.Count; oi++)
+                if (items[oi].IsComment) sb.Append('\n').Append(items[oi].Text);
+            foreach (var lc in lost) sb.Append('\n').Append(lc);
+            return sb.ToString();
         }
 
         /// <summary>

@@ -128,8 +128,13 @@ namespace SsmsSqlFormatter.Options
 
         // ---------- Safety ----------
         [Category("5. Safety")]
+        [DisplayName("Preserve comments")]
+        [Description("Re-insert the original script's comments into the formatted output, keeping them attached to the same code (trailing comments stay at line ends, standalone comments keep their own line). If a comment can't be confidently repositioned it is appended at the end under a banner - never silently deleted.")]
+        public bool PreserveComments { get; set; } = true;
+
+        [Category("5. Safety")]
         [DisplayName("Warn when script contains comments")]
-        [Description("The rule-based engine regenerates the script from its parse tree and can drop comments. When enabled, you get a warning and a chance to cancel (or use the AI engine, which preserves comments).")]
+        [Description("Only applies when 'Preserve comments' is OFF: warns that reformatting may drop or move comments and offers the chance to cancel.")]
         public bool WarnOnComments { get; set; } = true;
     }
 }

@@ -114,7 +114,7 @@ namespace SsmsSqlFormatter
             {
                 result = ScriptDomFormatter.Format(original, general);
 
-                if (result.Success && result.CommentCount > 0 && general.WarnOnComments)
+                if (result.Success && result.CommentCount > 0 && general.WarnOnComments && !general.PreserveComments)
                 {
                     var proceed = MessageBox.Show(
                         $"This script contains {result.CommentCount} comment(s). The rule-based engine may drop " +
