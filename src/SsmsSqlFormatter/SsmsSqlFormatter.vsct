@@ -19,7 +19,6 @@
       <Button guid="guidSsmsSqlFormatterCmdSet" id="cmdidFormatSql" priority="0x0100" type="Button">
         <Parent guid="guidSsmsSqlFormatterCmdSet" id="ToolsMenuGroup" />
         <CommandFlag>DynamicVisibility</CommandFlag>
-        <CommandFlag>DefaultEnabled</CommandFlag>
         <Strings>
           <ButtonText>Format T-SQL Script</ButtonText>
           <ToolTipText>Format the current T-SQL script or selection (rule-based or AI)</ToolTipText>
@@ -28,7 +27,6 @@
       <Button guid="guidSsmsSqlFormatterCmdSet" id="cmdidFormatSqlContext" priority="0x0100" type="Button">
         <Parent guid="guidSsmsSqlFormatterCmdSet" id="EditorContextGroup" />
         <CommandFlag>DynamicVisibility</CommandFlag>
-        <CommandFlag>DefaultEnabled</CommandFlag>
         <Strings>
           <ButtonText>Format T-SQL Script</ButtonText>
         </Strings>
