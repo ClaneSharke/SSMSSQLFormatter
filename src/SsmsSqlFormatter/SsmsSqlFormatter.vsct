@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <Extern href="stdidcmd.h" />
+  <Extern href="vsshlids.h" />
+
+  <Commands package="guidSsmsSqlFormatterPackage">
+    <Groups>
+      <!-- Group in the Tools menu -->
+      <Group guid="guidSsmsSqlFormatterCmdSet" id="ToolsMenuGroup" priority="0x0600">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_MENU_TOOLS" />
+      </Group>
+      <!-- Group in the code editor context menu -->
+      <Group guid="guidSsmsSqlFormatterCmdSet" id="EditorContextGroup" priority="0x0100">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_CODEWIN" />
+      </Group>
+    </Groups>
+
+    <Buttons>
+      <Button guid="guidSsmsSqlFormatterCmdSet" id="cmdidFormatSql" priority="0x0100" type="Button">
+        <Parent guid="guidSsmsSqlFormatterCmdSet" id="ToolsMenuGroup" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>DefaultEnabled</CommandFlag>
+        <Strings>
+          <ButtonText>Format T-SQL Script</ButtonText>
+          <ToolTipText>Format the current T-SQL script or selection (rule-based or AI)</ToolTipText>
+        </Strings>
+      </Button>
+      <Button guid="guidSsmsSqlFormatterCmdSet" id="cmdidFormatSqlContext" priority="0x0100" type="Button">
+        <Parent guid="guidSsmsSqlFormatterCmdSet" id="EditorContextGroup" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>DefaultEnabled</CommandFlag>
+        <Strings>
+          <ButtonText>Format T-SQL Script</ButtonText>
+        </Strings>
+      </Button>
+    </Buttons>
+  </Commands>
+
+  <KeyBindings>
+    <!-- Ctrl+Shift+Alt+F -->
+    <KeyBinding guid="guidSsmsSqlFormatterCmdSet" id="cmdidFormatSql" editor="guidVSStd97" key1="F" mod1="Control Shift Alt" />
+  </KeyBindings>
+
+  <Symbols>
+    <GuidSymbol name="guidSsmsSqlFormatterPackage" value="{a1e5c9f2-3b74-4d68-9e0a-6f2c8d5b1e47}" />
+    <GuidSymbol name="guidSsmsSqlFormatterCmdSet" value="{c8d2f6a4-7e19-4b3c-a5d8-0f9e6b3c2a71}">
+      <IDSymbol name="ToolsMenuGroup" value="0x1020" />
+      <IDSymbol name="EditorContextGroup" value="0x1021" />
+      <IDSymbol name="cmdidFormatSql" value="0x0100" />
+      <IDSymbol name="cmdidFormatSqlContext" value="0x0101" />
+    </GuidSymbol>
+  </Symbols>
+</CommandTable>

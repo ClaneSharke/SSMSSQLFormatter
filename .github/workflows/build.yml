@@ -1,0 +1,40 @@
+name: Build VSIX
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022   # includes VS 2022 Enterprise + extension development workload
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet
+        uses: nuget/setup-nuget@v2
+
+      - name: Restore packages
+        run: nuget restore SsmsSqlFormatter.sln
+
+      - name: Build (Release)
+        run: msbuild SsmsSqlFormatter.sln /p:Configuration=Release /p:DeployExtension=false /m /v:m
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SsmsSqlFormatter-vsix
+          path: src/SsmsSqlFormatter/bin/Release/SsmsSqlFormatter.vsix
+          if-no-files-found: error
+
+      # Optional: attach the VSIX to a GitHub Release when you push a tag like v1.0.0
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: src/SsmsSqlFormatter/bin/Release/SsmsSqlFormatter.vsix
