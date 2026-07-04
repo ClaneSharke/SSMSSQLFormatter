@@ -26,6 +26,14 @@ namespace SsmsSqlFormatter.Options
         PascalCase
     }
 
+    public enum CommaPlacement
+    {
+        /// <summary>Commas at the end of each line (a, ↵ b).</summary>
+        Trailing,
+        /// <summary>Commas at the start of the next line (a ↵ , b).</summary>
+        Leading
+    }
+
     public class GeneralOptions : DialogPage
     {
         // ---------- Engine ----------
@@ -47,6 +55,16 @@ namespace SsmsSqlFormatter.Options
         [Category("2. Basics")]
         [DisplayName("Indent size (spaces)")]
         public int IndentationSize { get; set; } = 4;
+
+        [Category("2. Basics")]
+        [DisplayName("Indent with tabs")]
+        [Description("Convert each indent level ('Indent size' spaces) into a tab character.")]
+        public bool UseTabsForIndentation { get; set; } = false;
+
+        [Category("2. Basics")]
+        [DisplayName("Comma placement")]
+        [Description("Trailing = commas end each line. Leading = commas start the next line (a common style for easy column commenting). Applies to all presets.")]
+        public CommaPlacement Commas { get; set; } = CommaPlacement.Trailing;
 
         [Category("2. Basics")]
         [DisplayName("Add semicolons")]

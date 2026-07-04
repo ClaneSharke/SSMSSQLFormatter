@@ -55,6 +55,8 @@ namespace SsmsSqlFormatter.Formatting
                 var generator = new Sql160ScriptGenerator(BuildOptions(options));
                 generator.GenerateScript(fragment, out string formatted);
 
+                formatted = PostProcess(formatted, options);
+
                 result.FormattedSql = formatted;
                 result.Success = true;
                 return result;
@@ -147,6 +149,97 @@ namespace SsmsSqlFormatter.Formatting
             return g;
         }
 
+        /// <summary>
+        /// Style transforms that ScriptDom's generator cannot do natively:
+        /// leading commas and tab-based indentation.
+        /// </summary>
+        private static string PostProcess(string sql, GeneralOptions options)
+        {
+            if (options.Commas == CommaPlacement.Leading)
+                sql = MoveCommasToLineStart(sql);
+
+            if (options.UseTabsForIndentation)
+                sql = ConvertIndentToTabs(sql, Math.Max(1, options.IndentationSize));
+
+            return sql;
+        }
+
+        /// <summary>
+        /// Token-aware pass: any comma that is the last token on its line is moved
+        /// past the newline so the next line starts with ", ". Because it walks the
+        /// parser's token stream, commas inside string literals are never touched.
+        /// </summary>
+        private static string MoveCommasToLineStart(string sql)
+        {
+            var parser = new TSql160Parser(initialQuotedIdentifiers: true);
+            TSqlFragment fragment;
+            IList<ParseError> errors;
+            using (var reader = new StringReader(sql))
+            {
+                fragment = parser.Parse(reader, out errors);
+            }
+            // The input was just generated, so it should always parse;
+            // if it somehow doesn't, leave the text unchanged.
+            if (fragment?.ScriptTokenStream == null || (errors != null && errors.Count > 0))
+                return sql;
+
+            var tokens = fragment.ScriptTokenStream;
+            var sb = new System.Text.StringBuilder(sql.Length + 64);
+
+            for (int i = 0; i < tokens.Count; i++)
+            {
+                var token = tokens[i];
+                if (token.TokenType == TSqlTokenType.Comma)
+                {
+                    // Gather any whitespace that follows the comma.
+                    int j = i + 1;
+                    var ws = new System.Text.StringBuilder();
+                    while (j < tokens.Count && tokens[j].TokenType == TSqlTokenType.WhiteSpace)
+                    {
+                        ws.Append(tokens[j].Text);
+                        j++;
+                    }
+
+                    if (ws.ToString().IndexOf('\n') >= 0)
+                    {
+                        // Comma ends the line: emit newline+indent first, then ", ".
+                        sb.Append(ws).Append(", ");
+                        i = j - 1;
+                        continue;
+                    }
+                }
+
+                if (token.Text != null)
+                    sb.Append(token.Text);
+            }
+
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Converts each leading group of <paramref name="indentSize"/> spaces into a tab.
+        /// Only affects indentation at the start of lines, never spacing inside a line.
+        /// </summary>
+        private static string ConvertIndentToTabs(string sql, int indentSize)
+        {
+            var lines = sql.Split('\n');
+            for (int i = 0; i < lines.Length; i++)
+            {
+                var line = lines[i];
+                int spaces = 0;
+                while (spaces < line.Length && line[spaces] == ' ')
+                    spaces++;
+
+                if (spaces >= indentSize)
+                {
+                    int tabs = spaces / indentSize;
+                    int remainder = spaces % indentSize;
+                    lines[i] = new string('\t', tabs) + new string(' ', remainder) + line.Substring(spaces);
+                }
+            }
+            return string.Join("\n", lines);
+        }
+
         private static KeywordCasing MapCasing(KeywordCase c)
         {
             switch (c)
@@ -163,12 +256,17 @@ namespace SsmsSqlFormatter.Formatting
         /// </summary>
         public static string DescribeStyle(GeneralOptions o)
         {
+            var commaNote = o.Commas == CommaPlacement.Leading
+                ? " Use LEADING commas: in multi-line lists each line after the first starts with a comma."
+                : " Use trailing commas at line ends.";
+            var indentNote = o.UseTabsForIndentation ? " Indent using tab characters." : "";
+
             if (o.Preset == StylePreset.Classic)
             {
                 return "Classic compact style: UPPERCASE keywords, trailing commas, SELECT list on one line " +
                        "unless very long, FROM/WHERE/GROUP BY/ORDER BY each start a new line, JOINs stay inline " +
                        "with their table, minimal blank lines, indent " + o.IndentationSize + " spaces" +
-                       (o.IncludeSemicolons ? ", terminate statements with semicolons." : ".");
+                       (o.IncludeSemicolons ? ", terminate statements with semicolons." : ".") + commaNote + indentNote;
             }
 
             if (o.Preset == StylePreset.Modern)
@@ -176,7 +274,7 @@ namespace SsmsSqlFormatter.Formatting
                 return "Modern expanded style: UPPERCASE keywords, each selected column on its own line, " +
                        "each JOIN and each ON condition on its own line, each AND/OR predicate in WHERE on its own line, " +
                        "clause bodies aligned and indented " + o.IndentationSize + " spaces" +
-                       (o.IncludeSemicolons ? ", terminate statements with semicolons." : ".");
+                       (o.IncludeSemicolons ? ", terminate statements with semicolons." : ".") + commaNote + indentNote;
             }
 
             var parts = new List<string>
@@ -192,7 +290,7 @@ namespace SsmsSqlFormatter.Formatting
             if (o.NewLineBeforeGroupBy) parts.Add("GROUP BY on a new line");
             if (o.NewLineBeforeOrderBy) parts.Add("ORDER BY on a new line");
             if (o.IncludeSemicolons) parts.Add("terminate statements with semicolons");
-            return "Custom style: " + string.Join(", ", parts) + ".";
+            return "Custom style: " + string.Join(", ", parts) + "." + commaNote + indentNote;
         }
     }
 }
