@@ -62,6 +62,11 @@ namespace SsmsSqlFormatter.Options
         public bool UseTabsForIndentation { get; set; } = false;
 
         [Category("2. Basics")]
+        [DisplayName("Re-indent subqueries")]
+        [Description("Guarantees the body of every nested subquery / derived table is indented at least one level per nesting depth. Fixes cases where the formatter leaves subquery clauses flush with the outer query. Only ever adds indentation - lines already indented deeper are left alone.")]
+        public bool ReindentSubqueries { get; set; } = true;
+
+        [Category("2. Basics")]
         [DisplayName("Comma placement")]
         [Description("Trailing = commas end each line. Leading = commas start the next line (a common style for easy column commenting). Applies to all presets.")]
         public CommaPlacement Commas { get; set; } = CommaPlacement.Trailing;

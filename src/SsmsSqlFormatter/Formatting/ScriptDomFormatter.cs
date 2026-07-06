@@ -350,6 +350,9 @@ namespace SsmsSqlFormatter.Formatting
             if (options.BlankLinesBeforeGo >= 0 && options.BlankLinesAfterGo >= 0)
                 sql = NormalizeGoSpacing(sql, options.BlankLinesBeforeGo, options.BlankLinesAfterGo);
 
+            if (options.ReindentSubqueries)
+                sql = ReindentSubqueries(sql, Math.Max(1, options.IndentationSize));
+
             if (options.Commas == CommaPlacement.Leading)
                 sql = MoveCommasToLineStart(sql);
 
@@ -357,6 +360,61 @@ namespace SsmsSqlFormatter.Formatting
                 sql = ConvertIndentToTabs(sql, Math.Max(1, options.IndentationSize));
 
             return sql;
+        }
+
+        /// <summary>
+        /// Ensures every line inside parentheses (subqueries, derived tables, IN lists)
+        /// is indented at least one level per nesting depth. Token-aware, so parentheses
+        /// inside strings and comments don't count. Never removes indentation.
+        /// </summary>
+        private static string ReindentSubqueries(string sql, int indentSize)
+        {
+            var parser = new TSql160Parser(initialQuotedIdentifiers: true);
+            TSqlFragment frag;
+            IList<ParseError> errors;
+            using (var reader = new StringReader(sql))
+            {
+                frag = parser.Parse(reader, out errors);
+            }
+            if (frag?.ScriptTokenStream == null) return sql;
+
+            var toks = frag.ScriptTokenStream;
+            var sb = new StringBuilder(sql.Length + 128);
+            int depth = 0;
+
+            for (int i = 0; i < toks.Count; i++)
+            {
+                var t = toks[i];
+                if (t.TokenType == TSqlTokenType.EndOfFile) continue;
+                string text = t.Text ?? "";
+
+                if (t.TokenType == TSqlTokenType.LeftParenthesis) depth++;
+                else if (t.TokenType == TSqlTokenType.RightParenthesis) depth = Math.Max(0, depth - 1);
+
+                if (t.TokenType == TSqlTokenType.WhiteSpace && text.IndexOf('\n') >= 0 && depth > 0)
+                {
+                    // A closing parenthesis starting the next line belongs one level out.
+                    int k = i + 1;
+                    while (k < toks.Count && toks[k].TokenType == TSqlTokenType.WhiteSpace) k++;
+                    int effective = (k < toks.Count && toks[k].TokenType == TSqlTokenType.RightParenthesis)
+                        ? depth - 1 : depth;
+
+                    if (effective > 0)
+                    {
+                        int cut = text.LastIndexOf('\n');
+                        string head = text.Substring(0, cut + 1);
+                        string tail = text.Substring(cut + 1);
+                        int width = 0;
+                        foreach (char c in tail) width += c == '\t' ? indentSize : 1;
+                        int required = effective * indentSize;
+                        if (width < required)
+                            text = head + new string(' ', required);
+                    }
+                }
+
+                sb.Append(text);
+            }
+            return sb.ToString();
         }
 
         /// <summary>

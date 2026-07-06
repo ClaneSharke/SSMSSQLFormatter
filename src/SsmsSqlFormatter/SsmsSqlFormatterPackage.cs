@@ -16,6 +16,7 @@ namespace SsmsSqlFormatter
     [ProvideMenuResource("Menus.ctmenu", 1)]
     [ProvideOptionPage(typeof(GeneralOptions), "Format T-SQL Script", "General", 0, 0, true)]
     [ProvideOptionPage(typeof(AiOptions), "Format T-SQL Script", "AI Engine", 0, 0, true)]
+    [ProvideOptionPage(typeof(HelpOptions), "Format T-SQL Script", "Help", 0, 0, true)]
     public sealed class SsmsSqlFormatterPackage : AsyncPackage
     {
         public const string PackageGuidString = "a1e5c9f2-3b74-4d68-9e0a-6f2c8d5b1e47";

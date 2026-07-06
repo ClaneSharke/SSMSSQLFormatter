@@ -19,6 +19,7 @@ namespace SsmsSqlFormatter
         public static readonly Guid CommandSet = new Guid("c8d2f6a4-7e19-4b3c-a5d8-0f9e6b3c2a71");
         public const int CommandId = 0x0100;
         public const int ContextCommandId = 0x0101;
+        public const int HelpCommandId = 0x0102;
 
         private readonly SsmsSqlFormatterPackage _package;
 
@@ -27,6 +28,44 @@ namespace SsmsSqlFormatter
             _package = package;
             commandService.AddCommand(new MenuCommand(Execute, new CommandID(CommandSet, CommandId)));
             commandService.AddCommand(new MenuCommand(Execute, new CommandID(CommandSet, ContextCommandId)));
+            commandService.AddCommand(new MenuCommand(ExecuteHelp, new CommandID(CommandSet, HelpCommandId)));
+        }
+
+        private void ExecuteHelp(object sender, EventArgs e)
+        {
+            var answer = MessageBox.Show(
+                "FORMAT T-SQL SCRIPT — quick help\r\n" +
+                "\r\n" +
+                "Format:  Ctrl+Shift+Alt+F, right-click > Format T-SQL Script, or the Tools menu.\r\n" +
+                "Formats the selection if there is one, otherwise the whole document.\r\n" +
+                "Ctrl+Z undoes the entire format in one step.\r\n" +
+                "\r\n" +
+                "Settings:  Tools > Options > Format T-SQL Script\r\n" +
+                "  • General — engine, Classic/Modern/Custom preset, casing, indentation,\r\n" +
+                "    comma placement, subquery re-indent, blank lines around GO,\r\n" +
+                "    comment preservation.\r\n" +
+                "  • AI Engine — optional Anthropic API key and custom style instructions.\r\n" +
+                "  • Help — this information inside the options dialog.\r\n" +
+                "\r\n" +
+                "Scripts with syntax errors are never modified; comments are never\r\n" +
+                "silently deleted.\r\n" +
+                "\r\n" +
+                "Open the project page (documentation, updates, issue tracker) in your browser?",
+                "Format T-SQL Script — Help",
+                MessageBoxButton.YesNo, MessageBoxImage.Information);
+
+            if (answer == MessageBoxResult.Yes)
+            {
+                try
+                {
+                    System.Diagnostics.Process.Start("https://github.com/ClaneSharke/SSMSSQLFormatter");
+                }
+                catch
+                {
+                    MessageBox.Show("Could not open a browser. The project page is:\r\nhttps://github.com/ClaneSharke/SSMSSQLFormatter",
+                        "Format T-SQL Script", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
         }
 
         public static async Task InitializeAsync(SsmsSqlFormatterPackage package)

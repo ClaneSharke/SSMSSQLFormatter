@@ -31,6 +31,14 @@
           <ButtonText>Format T-SQL Script</ButtonText>
         </Strings>
       </Button>
+      <Button guid="guidSsmsSqlFormatterCmdSet" id="cmdidFormatterHelp" priority="0x0110" type="Button">
+        <Parent guid="guidSsmsSqlFormatterCmdSet" id="ToolsMenuGroup" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Format T-SQL Script Help</ButtonText>
+          <ToolTipText>Usage, options overview, and link to documentation</ToolTipText>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
@@ -46,6 +54,7 @@
       <IDSymbol name="EditorContextGroup" value="0x1021" />
       <IDSymbol name="cmdidFormatSql" value="0x0100" />
       <IDSymbol name="cmdidFormatSqlContext" value="0x0101" />
+      <IDSymbol name="cmdidFormatterHelp" value="0x0102" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>
