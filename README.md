@@ -1,5 +1,12 @@
 # SSMS SQL Formatter (Rules + AI)
 
+**[⬇ Download the latest release](https://github.com/ClaneSharke/SSMSSQLFormatter/releases/latest)** — free, MIT-licensed.
+
+## Quick help
+
+Format with **Ctrl+Shift+Alt+F**, right-click → **Format T-SQL Script**, or the Tools menu. Formats the selection if there is one, otherwise the whole document; Ctrl+Z undoes the entire format. Settings live under **Tools → Options → Format T-SQL Script** (General, AI Engine, and Help pages). Scripts with syntax errors are never modified, and comments are never silently deleted. A **Format T-SQL Script Help** entry in the Tools menu shows this summary inside SSMS.
+
+
 A VSIX extension for **SQL Server Management Studio 21 / 22** that formats T-SQL in the query window.
 
 Two engines:
