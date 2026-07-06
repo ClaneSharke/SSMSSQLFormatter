@@ -139,14 +139,19 @@ namespace SsmsSqlFormatter.Formatting
                     g.MultilineWherePredicatesList = o.MultilineWherePredicates;
                     g.MultilineInsertSourcesList = o.MultilineInsertLists;
                     g.MultilineInsertTargetsList = o.MultilineInsertLists;
+                    g.MultilineViewColumnsList = o.MultilineViewColumns;
                     g.NewLineBeforeFromClause = o.NewLineBeforeFrom;
                     g.NewLineBeforeWhereClause = o.NewLineBeforeWhere;
                     g.NewLineBeforeJoinClause = o.NewLineBeforeJoin;
                     g.NewLineBeforeGroupByClause = o.NewLineBeforeGroupBy;
                     g.NewLineBeforeOrderByClause = o.NewLineBeforeOrderBy;
                     g.NewLineBeforeHavingClause = o.NewLineBeforeHaving;
-                    g.IndentViewBody = true;
-                    g.IndentSetClause = true;
+                    g.NewLineBeforeOutputClause = o.NewLineBeforeOutput;
+                    g.NewLineBeforeOffsetClause = o.NewLineBeforeOffset;
+                    g.NewLineBeforeOpenParenthesisInMultilineList = o.NewLineBeforeOpenParen;
+                    g.NewLineBeforeCloseParenthesisInMultilineList = o.NewLineBeforeCloseParen;
+                    g.IndentViewBody = o.IndentViewBody;
+                    g.IndentSetClause = o.IndentSetClause;
                     break;
             }
 
@@ -339,6 +344,12 @@ namespace SsmsSqlFormatter.Formatting
         /// </summary>
         private static string PostProcess(string sql, GeneralOptions options)
         {
+            if (options.TrimTrailingWhitespace || options.MaxConsecutiveBlankLines >= 0)
+                sql = ApplyWhitespacePolicy(sql, options.TrimTrailingWhitespace, options.MaxConsecutiveBlankLines);
+
+            if (options.BlankLinesBeforeGo >= 0 && options.BlankLinesAfterGo >= 0)
+                sql = NormalizeGoSpacing(sql, options.BlankLinesBeforeGo, options.BlankLinesAfterGo);
+
             if (options.Commas == CommaPlacement.Leading)
                 sql = MoveCommasToLineStart(sql);
 
@@ -346,6 +357,154 @@ namespace SsmsSqlFormatter.Formatting
                 sql = ConvertIndentToTabs(sql, Math.Max(1, options.IndentationSize));
 
             return sql;
+        }
+
+        /// <summary>
+        /// Token-aware whitespace cleanup: trims trailing spaces/tabs at line ends and
+        /// collapses runs of blank lines to a maximum. Operates only on whitespace
+        /// tokens, so blank lines inside /* */ comments are never touched.
+        /// </summary>
+        private static string ApplyWhitespacePolicy(string sql, bool trim, int maxBlank)
+        {
+            var parser = new TSql160Parser(initialQuotedIdentifiers: true);
+            TSqlFragment frag;
+            IList<ParseError> errors;
+            using (var reader = new StringReader(sql))
+            {
+                frag = parser.Parse(reader, out errors);
+            }
+            if (frag?.ScriptTokenStream == null) return sql;
+
+            var sb = new StringBuilder(sql.Length);
+            foreach (var t in frag.ScriptTokenStream)
+            {
+                if (t.TokenType == TSqlTokenType.EndOfFile) continue;
+                string text = t.Text ?? "";
+                if (t.TokenType == TSqlTokenType.WhiteSpace)
+                {
+                    if (trim)
+                        text = System.Text.RegularExpressions.Regex.Replace(text, "[ \\t]+(\\r?\\n)", "$1");
+                    if (maxBlank >= 0)
+                    {
+                        int newlines = 0;
+                        foreach (char c in text) if (c == '\n') newlines++;
+                        if (newlines > maxBlank + 1)
+                        {
+                            string tail = text.Substring(text.LastIndexOf('\n') + 1);
+                            var rebuilt = new StringBuilder();
+                            for (int k = 0; k < maxBlank + 1; k++) rebuilt.Append("\r\n");
+                            rebuilt.Append(tail);
+                            text = rebuilt.ToString();
+                        }
+                    }
+                }
+                sb.Append(text);
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Enforces an exact number of blank lines before and after each GO batch
+        /// separator. Token-aware: keeps "GO 5" batch counts and "GO -- comment"
+        /// trailing comments on the GO line, and never touches GO inside comments
+        /// or string literals.
+        /// </summary>
+        private static string NormalizeGoSpacing(string sql, int blankBefore, int blankAfter)
+        {
+            var parser = new TSql160Parser(initialQuotedIdentifiers: true);
+            TSqlFragment frag;
+            IList<ParseError> errors;
+            using (var reader = new StringReader(sql))
+            {
+                frag = parser.Parse(reader, out errors);
+            }
+            if (frag?.ScriptTokenStream == null) return sql;
+
+            var toks = frag.ScriptTokenStream;
+            var sb = new StringBuilder(sql.Length);
+            string pendingWs = null;
+
+            string NewLines(int blanks)
+            {
+                var r = new StringBuilder();
+                for (int k = 0; k < blanks + 1; k++) r.Append("\r\n");
+                return r.ToString();
+            }
+
+            void StripTrailingNewlines()
+            {
+                while (sb.Length > 0 && (sb[sb.Length - 1] == '\n' || sb[sb.Length - 1] == '\r'))
+                    sb.Length--;
+            }
+
+            for (int i = 0; i < toks.Count; i++)
+            {
+                var t = toks[i];
+                if (t.TokenType == TSqlTokenType.EndOfFile) continue;
+
+                if (t.TokenType == TSqlTokenType.WhiteSpace)
+                {
+                    pendingWs = (pendingWs ?? "") + (t.Text ?? "");
+                    continue;
+                }
+
+                if (t.TokenType == TSqlTokenType.Go)
+                {
+                    if (sb.Length > 0)
+                    {
+                        StripTrailingNewlines();
+                        sb.Append(NewLines(blankBefore));
+                    }
+                    pendingWs = null;
+                    sb.Append(t.Text);
+
+                    // Keep a batch count ("GO 5") or a trailing comment on the GO line.
+                    int j = i + 1;
+                    string wsAfter = "";
+                    while (j < toks.Count && toks[j].TokenType == TSqlTokenType.WhiteSpace)
+                    {
+                        wsAfter += toks[j].Text ?? "";
+                        j++;
+                    }
+                    if (j < toks.Count && wsAfter.IndexOf('\n') < 0 &&
+                        toks[j].TokenType == TSqlTokenType.Integer)
+                    {
+                        sb.Append(' ').Append(toks[j].Text);
+                        j++;
+                        while (j < toks.Count && toks[j].TokenType == TSqlTokenType.WhiteSpace) j++;
+                    }
+                    else if (j < toks.Count && wsAfter.IndexOf('\n') < 0 &&
+                             (toks[j].TokenType == TSqlTokenType.SingleLineComment ||
+                              toks[j].TokenType == TSqlTokenType.MultilineComment))
+                    {
+                        sb.Append(' ').Append(toks[j].Text);
+                        j++;
+                        while (j < toks.Count && toks[j].TokenType == TSqlTokenType.WhiteSpace) j++;
+                    }
+
+                    bool moreContent = false;
+                    for (int k = j; k < toks.Count; k++)
+                    {
+                        if (toks[k].TokenType != TSqlTokenType.WhiteSpace &&
+                            toks[k].TokenType != TSqlTokenType.EndOfFile)
+                        {
+                            moreContent = true;
+                            break;
+                        }
+                    }
+                    sb.Append(moreContent ? NewLines(blankAfter) : "\r\n");
+                    i = j - 1;
+                    continue;
+                }
+
+                if (pendingWs != null)
+                {
+                    sb.Append(pendingWs);
+                    pendingWs = null;
+                }
+                sb.Append(t.Text);
+            }
+            return sb.ToString();
         }
 
         /// <summary>
@@ -444,13 +603,16 @@ namespace SsmsSqlFormatter.Formatting
                 ? " Use LEADING commas: in multi-line lists each line after the first starts with a comma."
                 : " Use trailing commas at line ends.";
             var indentNote = o.UseTabsForIndentation ? " Indent using tab characters." : "";
+            var goNote = (o.BlankLinesBeforeGo >= 0 && o.BlankLinesAfterGo >= 0)
+                ? $" Put exactly {o.BlankLinesBeforeGo} blank line(s) before each GO and {o.BlankLinesAfterGo} after."
+                : "";
 
             if (o.Preset == StylePreset.Classic)
             {
                 return "Classic compact style: UPPERCASE keywords, trailing commas, SELECT list on one line " +
                        "unless very long, FROM/WHERE/GROUP BY/ORDER BY each start a new line, JOINs stay inline " +
                        "with their table, minimal blank lines, indent " + o.IndentationSize + " spaces" +
-                       (o.IncludeSemicolons ? ", terminate statements with semicolons." : ".") + commaNote + indentNote;
+                       (o.IncludeSemicolons ? ", terminate statements with semicolons." : ".") + commaNote + indentNote + goNote;
             }
 
             if (o.Preset == StylePreset.Modern)
@@ -458,7 +620,7 @@ namespace SsmsSqlFormatter.Formatting
                 return "Modern expanded style: UPPERCASE keywords, each selected column on its own line, " +
                        "each JOIN and each ON condition on its own line, each AND/OR predicate in WHERE on its own line, " +
                        "clause bodies aligned and indented " + o.IndentationSize + " spaces" +
-                       (o.IncludeSemicolons ? ", terminate statements with semicolons." : ".") + commaNote + indentNote;
+                       (o.IncludeSemicolons ? ", terminate statements with semicolons." : ".") + commaNote + indentNote + goNote;
             }
 
             var parts = new List<string>
@@ -474,7 +636,7 @@ namespace SsmsSqlFormatter.Formatting
             if (o.NewLineBeforeGroupBy) parts.Add("GROUP BY on a new line");
             if (o.NewLineBeforeOrderBy) parts.Add("ORDER BY on a new line");
             if (o.IncludeSemicolons) parts.Add("terminate statements with semicolons");
-            return "Custom style: " + string.Join(", ", parts) + "." + commaNote + indentNote;
+            return "Custom style: " + string.Join(", ", parts) + "." + commaNote + indentNote + goNote;
         }
     }
 }

@@ -101,6 +101,24 @@ namespace SsmsSqlFormatter.Options
         [DisplayName("New line before HAVING")]
         public bool NewLineBeforeHaving { get; set; } = true;
 
+        [Category("3. Line breaks")]
+        [DisplayName("New line before OUTPUT")]
+        public bool NewLineBeforeOutput { get; set; } = true;
+
+        [Category("3. Line breaks")]
+        [DisplayName("New line before OFFSET")]
+        public bool NewLineBeforeOffset { get; set; } = true;
+
+        [Category("3. Line breaks")]
+        [DisplayName("New line before ( in multiline lists")]
+        [Description("Opening parenthesis of a multiline list goes on its own line.")]
+        public bool NewLineBeforeOpenParen { get; set; } = true;
+
+        [Category("3. Line breaks")]
+        [DisplayName("New line before ) in multiline lists")]
+        [Description("Closing parenthesis of a multiline list goes on its own line.")]
+        public bool NewLineBeforeCloseParen { get; set; } = true;
+
         // ---------- Lists ----------
         [Category("4. Lists")]
         [DisplayName("Multiline SELECT list")]
@@ -126,13 +144,48 @@ namespace SsmsSqlFormatter.Options
         [Description("Align column definition fields in CREATE TABLE.")]
         public bool AlignColumnDefinitions { get; set; } = true;
 
+        [Category("4. Lists")]
+        [DisplayName("Multiline view columns")]
+        [Description("Each column in a view's column list on its own line.")]
+        public bool MultilineViewColumns { get; set; } = true;
+
+        [Category("4. Lists")]
+        [DisplayName("Indent view body")]
+        public bool IndentViewBody { get; set; } = true;
+
+        [Category("4. Lists")]
+        [DisplayName("Indent SET clause")]
+        [Description("Indent the SET clause body in UPDATE statements.")]
+        public bool IndentSetClause { get; set; } = true;
+
+        // ---------- Blank lines & GO ----------
+        [Category("5. Blank lines and GO")]
+        [DisplayName("Blank lines before GO")]
+        [Description("Exact number of blank lines before each GO batch separator. Set both GO options to -1 to leave GO spacing untouched.")]
+        public int BlankLinesBeforeGo { get; set; } = 1;
+
+        [Category("5. Blank lines and GO")]
+        [DisplayName("Blank lines after GO")]
+        [Description("Exact number of blank lines after each GO batch separator. Set both GO options to -1 to leave GO spacing untouched.")]
+        public int BlankLinesAfterGo { get; set; } = 1;
+
+        [Category("5. Blank lines and GO")]
+        [DisplayName("Max consecutive blank lines")]
+        [Description("Collapse runs of blank lines anywhere in the script down to this many. -1 = unlimited. Blank lines inside /* */ comments are never touched, and the GO settings above take precedence around GO.")]
+        public int MaxConsecutiveBlankLines { get; set; } = 1;
+
+        [Category("5. Blank lines and GO")]
+        [DisplayName("Trim trailing whitespace")]
+        [Description("Remove spaces and tabs at the ends of lines.")]
+        public bool TrimTrailingWhitespace { get; set; } = true;
+
         // ---------- Safety ----------
-        [Category("5. Safety")]
+        [Category("6. Safety")]
         [DisplayName("Preserve comments")]
         [Description("Re-insert the original script's comments into the formatted output, keeping them attached to the same code (trailing comments stay at line ends, standalone comments keep their own line). If a comment can't be confidently repositioned it is appended at the end under a banner - never silently deleted.")]
         public bool PreserveComments { get; set; } = true;
 
-        [Category("5. Safety")]
+        [Category("6. Safety")]
         [DisplayName("Warn when script contains comments")]
         [Description("Only applies when 'Preserve comments' is OFF: warns that reformatting may drop or move comments and offers the chance to cancel.")]
         public bool WarnOnComments { get; set; } = true;
