@@ -350,6 +350,9 @@ namespace SsmsSqlFormatter.Formatting
             if (options.BlankLinesBeforeGo >= 0 && options.BlankLinesAfterGo >= 0)
                 sql = NormalizeGoSpacing(sql, options.BlankLinesBeforeGo, options.BlankLinesAfterGo);
 
+            if (options.BlankLinesBetweenStatements >= 0)
+                sql = NormalizeStatementSpacing(sql, options.BlankLinesBetweenStatements);
+
             if (options.ReindentSubqueries)
                 sql = ReindentSubqueries(sql, Math.Max(1, options.IndentationSize));
 
@@ -360,6 +363,88 @@ namespace SsmsSqlFormatter.Formatting
                 sql = ConvertIndentToTabs(sql, Math.Max(1, options.IndentationSize));
 
             return sql;
+        }
+
+        /// <summary>
+        /// Sets an exact number of blank lines between consecutive top-level statements
+        /// within each batch (AST-based, so statements nested inside BEGIN...END are
+        /// untouched). Trailing comments stay on their statement's line; a comment
+        /// block above a statement stays attached to it, with the blank lines above.
+        /// </summary>
+        private static string NormalizeStatementSpacing(string sql, int blankBetween)
+        {
+            var parser = new TSql160Parser(initialQuotedIdentifiers: true);
+            TSqlFragment frag;
+            IList<ParseError> errors;
+            using (var reader = new StringReader(sql))
+            {
+                frag = parser.Parse(reader, out errors);
+            }
+            var script = frag as TSqlScript;
+            if (script?.ScriptTokenStream == null || (errors != null && errors.Count > 0))
+                return sql;
+
+            var toks = script.ScriptTokenStream;
+            var replacements = new Dictionary<int, string>();
+
+            string NewLines(int blanks)
+            {
+                var r = new StringBuilder();
+                for (int k = 0; k < blanks + 1; k++) r.Append("\r\n");
+                return r.ToString();
+            }
+
+            foreach (var batch in script.Batches)
+            {
+                for (int s = 0; s < batch.Statements.Count - 1; s++)
+                {
+                    int i = batch.Statements[s].LastTokenIndex + 1;
+
+                    // Skip past the terminator and anything that should stay on the
+                    // statement's own line: semicolon, same-line whitespace, and
+                    // trailing comments.
+                    bool progressed = true;
+                    while (i < toks.Count && progressed)
+                    {
+                        progressed = false;
+                        if (toks[i].TokenType == TSqlTokenType.WhiteSpace &&
+                            (toks[i].Text ?? "").IndexOf('\n') < 0)
+                        {
+                            i++; progressed = true; continue;
+                        }
+                        if (toks[i].TokenType == TSqlTokenType.Semicolon ||
+                            toks[i].TokenType == TSqlTokenType.SingleLineComment ||
+                            toks[i].TokenType == TSqlTokenType.MultilineComment)
+                        {
+                            i++; progressed = true; continue;
+                        }
+                    }
+
+                    if (i < toks.Count && toks[i].TokenType == TSqlTokenType.WhiteSpace)
+                    {
+                        string text = toks[i].Text ?? "";
+                        if (text.IndexOf('\n') >= 0)
+                        {
+                            string tail = text.Substring(text.LastIndexOf('\n') + 1);
+                            replacements[i] = NewLines(blankBetween) + tail;
+                        }
+                        else
+                        {
+                            replacements[i] = NewLines(blankBetween);
+                        }
+                    }
+                }
+            }
+
+            if (replacements.Count == 0) return sql;
+
+            var sb = new StringBuilder(sql.Length + replacements.Count * 4);
+            for (int i = 0; i < toks.Count; i++)
+            {
+                if (toks[i].TokenType == TSqlTokenType.EndOfFile) continue;
+                sb.Append(replacements.TryGetValue(i, out string repl) ? repl : (toks[i].Text ?? ""));
+            }
+            return sb.ToString();
         }
 
         /// <summary>
@@ -664,13 +749,16 @@ namespace SsmsSqlFormatter.Formatting
             var goNote = (o.BlankLinesBeforeGo >= 0 && o.BlankLinesAfterGo >= 0)
                 ? $" Put exactly {o.BlankLinesBeforeGo} blank line(s) before each GO and {o.BlankLinesAfterGo} after."
                 : "";
+            var stmtNote = o.BlankLinesBetweenStatements >= 0
+                ? $" Put exactly {o.BlankLinesBetweenStatements} blank line(s) between top-level statements."
+                : "";
 
             if (o.Preset == StylePreset.Classic)
             {
                 return "Classic compact style: UPPERCASE keywords, trailing commas, SELECT list on one line " +
                        "unless very long, FROM/WHERE/GROUP BY/ORDER BY each start a new line, JOINs stay inline " +
                        "with their table, minimal blank lines, indent " + o.IndentationSize + " spaces" +
-                       (o.IncludeSemicolons ? ", terminate statements with semicolons." : ".") + commaNote + indentNote + goNote;
+                       (o.IncludeSemicolons ? ", terminate statements with semicolons." : ".") + commaNote + indentNote + goNote + stmtNote;
             }
 
             if (o.Preset == StylePreset.Modern)
@@ -678,7 +766,7 @@ namespace SsmsSqlFormatter.Formatting
                 return "Modern expanded style: UPPERCASE keywords, each selected column on its own line, " +
                        "each JOIN and each ON condition on its own line, each AND/OR predicate in WHERE on its own line, " +
                        "clause bodies aligned and indented " + o.IndentationSize + " spaces" +
-                       (o.IncludeSemicolons ? ", terminate statements with semicolons." : ".") + commaNote + indentNote + goNote;
+                       (o.IncludeSemicolons ? ", terminate statements with semicolons." : ".") + commaNote + indentNote + goNote + stmtNote;
             }
 
             var parts = new List<string>
@@ -694,7 +782,7 @@ namespace SsmsSqlFormatter.Formatting
             if (o.NewLineBeforeGroupBy) parts.Add("GROUP BY on a new line");
             if (o.NewLineBeforeOrderBy) parts.Add("ORDER BY on a new line");
             if (o.IncludeSemicolons) parts.Add("terminate statements with semicolons");
-            return "Custom style: " + string.Join(", ", parts) + "." + commaNote + indentNote + goNote;
+            return "Custom style: " + string.Join(", ", parts) + "." + commaNote + indentNote + goNote + stmtNote;
         }
     }
 }

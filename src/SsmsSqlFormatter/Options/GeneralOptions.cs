@@ -175,6 +175,11 @@ namespace SsmsSqlFormatter.Options
         public int BlankLinesAfterGo { get; set; } = 1;
 
         [Category("5. Blank lines and GO")]
+        [DisplayName("Blank lines between statements")]
+        [Description("Exact number of blank lines between consecutive top-level statements within a batch. Statements nested inside BEGIN...END bodies are not affected. A comment above a statement stays attached to it (blank lines go above the comment). -1 = leave as-is.")]
+        public int BlankLinesBetweenStatements { get; set; } = 1;
+
+        [Category("5. Blank lines and GO")]
         [DisplayName("Max consecutive blank lines")]
         [Description("Collapse runs of blank lines anywhere in the script down to this many. -1 = unlimited. Blank lines inside /* */ comments are never touched, and the GO settings above take precedence around GO.")]
         public int MaxConsecutiveBlankLines { get; set; } = 1;

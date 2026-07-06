@@ -47,6 +47,6 @@ namespace SsmsSqlFormatter.Options
 
         [Category("4. Support")]
         [DisplayName("Version")]
-        public string Version => "1.4.0";
+        public string Version => "1.5.0";
     }
 }
