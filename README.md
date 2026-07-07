@@ -6,6 +6,8 @@
 
 Format with **Ctrl+Shift+Alt+F**, right-click → **Format T-SQL Script**, or the Tools menu. Formats the selection if there is one, otherwise the whole document; Ctrl+Z undoes the entire format. Settings live under **Tools → Options → Format T-SQL Script** (General, AI Engine, and Help pages). Scripts with syntax errors are never modified, and comments are never silently deleted. A **Format T-SQL Script Help** entry in the Tools menu shows this summary inside SSMS.
 
+> **Note:** on some SSMS builds the right-click entry doesn't appear in the query editor's context menu automatically, because SSMS's T-SQL editor uses its own private context menu rather than the standard Visual Studio one. The keyboard shortcut and Tools menu always work. To add the context-menu entry yourself (one-time, survives upgrades): **Tools → Customize → Commands tab → select Context menu → "Editor Context Menus | Code Window" → Add Command → category Tools → Format T-SQL Script → OK → Close.** Alternatively add it to a toolbar the same way via the Toolbar radio button.
+
 
 A VSIX extension for **SQL Server Management Studio 21 / 22** that formats T-SQL in the query window.
 

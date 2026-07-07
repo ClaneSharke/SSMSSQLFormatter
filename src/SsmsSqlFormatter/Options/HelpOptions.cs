@@ -16,6 +16,11 @@ namespace SsmsSqlFormatter.Options
         public string HowToFormat => "Ctrl+Shift+Alt+F  |  right-click > Format T-SQL Script";
 
         [Category("1. How to format")]
+        [DisplayName("Context menu missing?")]
+        [Description("On some SSMS builds the right-click entry doesn't appear automatically, because SSMS's T-SQL editor uses its own private context menu instead of the standard Visual Studio one. The keyboard shortcut and Tools menu always work. To add it yourself (one-time, survives upgrades): Tools > Customize > Commands tab > Context menu radio button > choose 'Editor Context Menus | Code Window' > Add Command > category Tools > Format T-SQL Script > OK > Close.")]
+        public string ContextMenu => "Add via Tools > Customize if missing - shortcut always works";
+
+        [Category("1. How to format")]
         [DisplayName("Parse errors")]
         [Description("If the script contains a syntax error the formatter refuses to change anything and reports the line and column of the first error. Fix the error and format again.")]
         public string ParseErrors => "Scripts with syntax errors are never modified";
@@ -47,6 +52,6 @@ namespace SsmsSqlFormatter.Options
 
         [Category("4. Support")]
         [DisplayName("Version")]
-        public string Version => "1.5.0";
+        public string Version => "1.5.1";
     }
 }
