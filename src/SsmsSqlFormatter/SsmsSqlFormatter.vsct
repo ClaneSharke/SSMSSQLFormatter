@@ -47,6 +47,14 @@
           <ToolTipText>Copy the results grid to the clipboard as an Excel table with headers (Ctrl+Shift+Alt+X)</ToolTipText>
         </Strings>
       </Button>
+      <Button guid="guidSsmsSqlFormatterCmdSet" id="cmdidCopyResultsExcelContext" priority="0x0106" type="Button">
+        <Parent guid="guidSsmsSqlFormatterCmdSet" id="EditorContextGroup" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Copy Results as Excel Table</ButtonText>
+          <ToolTipText>Copy the results grid to the clipboard as an Excel table with headers</ToolTipText>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
@@ -65,6 +73,7 @@
       <IDSymbol name="cmdidFormatSqlContext" value="0x0101" />
       <IDSymbol name="cmdidFormatterHelp" value="0x0102" />
       <IDSymbol name="cmdidCopyResultsExcel" value="0x0103" />
+      <IDSymbol name="cmdidCopyResultsExcelContext" value="0x0104" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>

@@ -21,6 +21,7 @@ namespace SsmsSqlFormatter
         public const int ContextCommandId = 0x0101;
         public const int HelpCommandId = 0x0102;
         public const int CopyExcelCommandId = 0x0103;
+        public const int CopyExcelContextCommandId = 0x0104;
 
         private readonly SsmsSqlFormatterPackage _package;
 
@@ -31,6 +32,7 @@ namespace SsmsSqlFormatter
             commandService.AddCommand(new MenuCommand(Execute, new CommandID(CommandSet, ContextCommandId)));
             commandService.AddCommand(new MenuCommand(ExecuteHelp, new CommandID(CommandSet, HelpCommandId)));
             commandService.AddCommand(new MenuCommand(ExecuteCopyExcel, new CommandID(CommandSet, CopyExcelCommandId)));
+            commandService.AddCommand(new MenuCommand(ExecuteCopyExcel, new CommandID(CommandSet, CopyExcelContextCommandId)));
         }
 
         /// <summary>

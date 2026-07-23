@@ -26,6 +26,11 @@ namespace SsmsSqlFormatter.Options
         public string CopyResultsExcel => "Ctrl+Shift+Alt+X in the results grid, then paste into Excel";
 
         [Category("1. How to format")]
+        [DisplayName("Results grid context menu")]
+        [Description("SSMS's results grid builds its own private context menu, so right-clicking the grid (including the top-left corner) won't show this extension's commands - SSMS never asks extensions to contribute there. Use Ctrl+Shift+Alt+X, the Tools menu, or add a toolbar button: Tools > Customize > Commands > Toolbar > Standard > Add Command > category Tools > Copy Results as Excel Table. A toolbar button is always visible and survives upgrades.")]
+        public string ResultsGridMenu => "Use the shortcut or add a toolbar button via Tools > Customize";
+
+        [Category("1. How to format")]
         [DisplayName("Parse errors")]
         [Description("If the script contains a syntax error the formatter refuses to change anything and reports the line and column of the first error. Fix the error and format again.")]
         public string ParseErrors => "Scripts with syntax errors are never modified";
@@ -57,6 +62,6 @@ namespace SsmsSqlFormatter.Options
 
         [Category("4. Support")]
         [DisplayName("Version")]
-        public string Version => "1.6.0";
+        public string Version => "1.6.1";
     }
 }

@@ -8,6 +8,8 @@ Format with **Ctrl+Shift+Alt+F**, right-click → **Format T-SQL Script**, or th
 
 **Copy results to Excel:** click in the results grid, select cells (Ctrl+A for all), press **Ctrl+Shift+Alt+X**, then Ctrl+V in Excel — you get a real table with bold headers and (by default) all cells as Text so leading zeros and long IDs survive. Configure under Tools → Options → Format T-SQL Script.
 
+> **Results grid:** SSMS's results grid builds its own private context menu, so right-clicking the grid won't show the extension's commands. Use **Ctrl+Shift+Alt+X**, the Tools menu, or add a toolbar button (**Tools → Customize → Commands → Toolbar → Standard → Add Command → Tools → Copy Results as Excel Table**) — a toolbar button is always visible and survives upgrades.
+
 > **Note:** on some SSMS builds the right-click entry doesn't appear in the query editor's context menu automatically, because SSMS's T-SQL editor uses its own private context menu rather than the standard Visual Studio one. The keyboard shortcut and Tools menu always work. To add the context-menu entry yourself (one-time, survives upgrades): **Tools → Customize → Commands tab → select Context menu → "Editor Context Menus | Code Window" → Add Command → category Tools → Format T-SQL Script → OK → Close.** Alternatively add it to a toolbar the same way via the Toolbar radio button.
 
 
