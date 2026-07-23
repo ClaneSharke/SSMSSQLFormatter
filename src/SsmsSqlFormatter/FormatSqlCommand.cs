@@ -98,6 +98,17 @@ namespace SsmsSqlFormatter
                     return;
                 }
 
+                if (LooksLikeActiveQueryText(text))
+                {
+                    ShowInfo(
+                        "That looks like the query text, not the results - the query " +
+                        "editor had focus when the copy ran, so the editor's content was " +
+                        "copied instead of the grid.\r\n\r\n" +
+                        "Click anywhere inside the results grid first (Ctrl+A selects all " +
+                        "cells), then run this command again.");
+                    return;
+                }
+
                 var style = BuildStyle(general);
 
                 if (general.ExcelAction == Options.ExcelResultAction.OpenInExcel)
@@ -211,6 +222,17 @@ namespace SsmsSqlFormatter
                     return;
                 }
 
+                if (LooksLikeActiveQueryText(text))
+                {
+                    ShowInfo(
+                        "That looks like the query text, not the results - the query " +
+                        "editor had focus when the copy ran, so the editor's content was " +
+                        "copied instead of the grid.\r\n\r\n" +
+                        "Click anywhere inside the results grid first (Ctrl+A selects all " +
+                        "cells), then run this command again.");
+                    return;
+                }
+
                 OpenInExcel(text, BuildStyle(general));
             }
             catch (Exception ex)
@@ -221,6 +243,41 @@ namespace SsmsSqlFormatter
 
         private static string Hex(System.Drawing.Color c) =>
             "#" + c.R.ToString("X2") + c.G.ToString("X2") + c.B.ToString("X2");
+
+        /// <summary>
+        /// True when the clipboard text is actually the query editor's content -
+        /// which happens when the editor (not the results grid) had focus during
+        /// the automatic copy. Compares against both the current selection and the
+        /// whole document, ignoring line-ending and edge-whitespace differences.
+        /// </summary>
+        private static bool LooksLikeActiveQueryText(string clipText)
+        {
+            try
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                var dte = (DTE2)Package.GetGlobalService(typeof(DTE));
+                var textDoc = dte?.ActiveDocument?.Object("TextDocument") as TextDocument;
+                if (textDoc == null) return false;
+
+                string Norm(string s) =>
+                    (s ?? "").Replace("\r\n", "\n").Trim();
+
+                string clip = Norm(clipText);
+                if (clip.Length == 0) return false;
+
+                var selection = textDoc.Selection;
+                if (selection != null && !selection.IsEmpty &&
+                    Norm(selection.Text) == clip)
+                    return true;
+
+                string full = textDoc.StartPoint.CreateEditPoint().GetText(textDoc.EndPoint);
+                return Norm(full) == clip;
+            }
+            catch
+            {
+                return false;
+            }
+        }
 
         private static Formatting.ExcelStyle BuildStyle(Options.GeneralOptions general)
         {
