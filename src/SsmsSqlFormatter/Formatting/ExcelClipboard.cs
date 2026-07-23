@@ -12,6 +12,7 @@ namespace SsmsSqlFormatter.Formatting
     public static class ExcelClipboard
     {
         public static string BuildCfHtml(string tsv, bool forceTextCells, bool nullsAsEmpty,
+                                         bool firstRowIsHeader,
                                          out int rowCount, out int colCount)
         {
             var lines = tsv.Replace("\r\n", "\n").TrimEnd('\n').Split('\n');
@@ -30,7 +31,7 @@ namespace SsmsSqlFormatter.Formatting
             {
                 var cells = lines[r].Split('\t');
                 if (cells.Length > colCount) colCount = cells.Length;
-                bool header = r == 0;
+                bool header = firstRowIsHeader && r == 0;
                 sb.Append("<tr>");
                 foreach (var raw in cells)
                 {

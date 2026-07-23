@@ -48,45 +48,100 @@ namespace SsmsSqlFormatter
             {
                 var general = _package.GetGeneralOptions();
 
+                string before = ReadClipboardText();
+
                 if (general.ExcelSimulateCopyFirst)
                 {
                     // Ask the focused control (the results grid) to Copy with Headers.
-                    System.Windows.Forms.SendKeys.SendWait("^+c");
-                    System.Threading.Thread.Sleep(300);
+                    // This only reaches the grid when the grid still has focus - i.e.
+                    // when invoked by keyboard shortcut. Toolbar and menu clicks move
+                    // focus away, so we fall back to whatever is already copied.
+                    try
+                    {
+                        System.Windows.Forms.SendKeys.SendWait("^+c");
+                        System.Threading.Thread.Sleep(350);
+                    }
+                    catch { /* SendKeys can fail in some hosts; fall through */ }
                 }
 
-                string text = null;
-                try { text = System.Windows.Clipboard.GetText(); } catch { /* clipboard busy */ }
+                string text = ReadClipboardText();
 
-                if (string.IsNullOrWhiteSpace(text) || text.IndexOf('\t') < 0)
+                // If the simulated copy did nothing, use whatever the user copied
+                // themselves - that is the normal case for toolbar/menu invocation.
+                if (string.IsNullOrEmpty(text)) text = before;
+
+                if (string.IsNullOrWhiteSpace(text))
                 {
                     ShowInfo(
-                        "No tabular data found on the clipboard.\r\n\r\n" +
-                        "Click in the results grid, select cells (Ctrl+A for everything), " +
-                        "then run this command again.\r\n\r\n" +
-                        "If your results still aren't picked up, copy manually with " +
-                        "Ctrl+Shift+C (Copy with Headers) and run the command with " +
-                        "'Simulate Copy with Headers first' turned off in " +
-                        "Tools > Options > Format T-SQL Script.");
+                        "Nothing to convert - the clipboard is empty.\r\n\r\n" +
+                        "Copy your results first:\r\n" +
+                        "  1. Click in the results grid (Ctrl+A selects everything).\r\n" +
+                        "  2. Right-click > Copy with Headers, or press Ctrl+Shift+C.\r\n" +
+                        "  3. Run this command again.\r\n\r\n" +
+                        "Tip: pressing Ctrl+Shift+Alt+X while the grid has focus does " +
+                        "the copy for you. A toolbar or menu click cannot, because " +
+                        "clicking moves focus out of the grid.");
                     return;
                 }
 
                 string cfHtml = Formatting.ExcelClipboard.BuildCfHtml(
                     text, general.ExcelForceTextCells, general.ExcelNullsAsEmpty,
+                    general.ExcelFirstRowIsHeader,
                     out int rows, out int cols);
 
                 var data = new System.Windows.DataObject();
                 data.SetData(System.Windows.DataFormats.Html, cfHtml);
                 data.SetData(System.Windows.DataFormats.UnicodeText, text);
-                System.Windows.Clipboard.SetDataObject(data, true);
+
+                if (!TrySetClipboard(data))
+                {
+                    ShowError("Could not write to the clipboard - another application is holding it. Try again.");
+                    return;
+                }
 
                 var dte = (DTE2)Package.GetGlobalService(typeof(DTE));
-                SetStatus(dte, $"Results copied as Excel table: {rows} row(s) x {cols} column(s) (incl. headers). Paste into Excel with Ctrl+V.");
+                SetStatus(dte, $"Copied as Excel table: {rows} row(s) x {cols} column(s). Paste into Excel with Ctrl+V.");
             }
             catch (Exception ex)
             {
                 ShowError("Copy as Excel table failed: " + ex.Message);
             }
+        }
+
+        /// <summary>Reads clipboard text, retrying briefly - the clipboard is often locked momentarily by other apps.</summary>
+        private static string ReadClipboardText()
+        {
+            for (int attempt = 0; attempt < 5; attempt++)
+            {
+                try
+                {
+                    if (System.Windows.Clipboard.ContainsText())
+                        return System.Windows.Clipboard.GetText();
+                    return null;
+                }
+                catch
+                {
+                    System.Threading.Thread.Sleep(60);
+                }
+            }
+            return null;
+        }
+
+        private static bool TrySetClipboard(System.Windows.DataObject data)
+        {
+            for (int attempt = 0; attempt < 5; attempt++)
+            {
+                try
+                {
+                    System.Windows.Clipboard.SetDataObject(data, true);
+                    return true;
+                }
+                catch
+                {
+                    System.Threading.Thread.Sleep(60);
+                }
+            }
+            return false;
         }
 
         private void ExecuteHelp(object sender, EventArgs e)

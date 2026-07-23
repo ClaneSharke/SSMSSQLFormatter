@@ -191,9 +191,14 @@ namespace SsmsSqlFormatter.Options
 
         // ---------- Copy results for Excel ----------
         [Category("7. Copy results for Excel")]
-        [DisplayName("Simulate Copy with Headers first")]
-        [Description("When you run 'Copy Results as Excel Table' (Ctrl+Shift+Alt+X), first send the grid's own Copy-with-Headers keystroke so you don't have to copy manually. Requires focus to be in the results grid. Disable this to transform whatever you copied yourself.")]
+        [DisplayName("Try to copy the grid automatically")]
+        [Description("Sends the grid's Copy-with-Headers keystroke before converting. This only works when the results grid still has focus, i.e. when you use the Ctrl+Shift+Alt+X shortcut - clicking a toolbar button or menu item moves focus away, in which case whatever you copied yourself is converted instead.")]
         public bool ExcelSimulateCopyFirst { get; set; } = true;
+
+        [Category("7. Copy results for Excel")]
+        [DisplayName("First row contains headers")]
+        [Description("Format the first copied row as a bold header row. Turn this off if you copied without headers (plain Ctrl+C), so the first data row isn't styled as a header.")]
+        public bool ExcelFirstRowIsHeader { get; set; } = true;
 
         [Category("7. Copy results for Excel")]
         [DisplayName("Paste all cells as text")]
