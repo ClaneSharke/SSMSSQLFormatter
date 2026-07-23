@@ -63,6 +63,14 @@
           <ToolTipText>Write the copied results to a temporary workbook and open it in Excel (no clipboard needed)</ToolTipText>
         </Strings>
       </Button>
+      <Button guid="guidSsmsSqlFormatterCmdSet" id="cmdidAddResultsSheet" priority="0x0108" type="Button">
+        <Parent guid="guidSsmsSqlFormatterCmdSet" id="ToolsMenuGroup" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Add Results as Sheet</ButtonText>
+          <ToolTipText>Queue the copied result set as a worksheet; export all queued sets to one workbook with Ctrl+Shift+Alt+X (Ctrl+Shift+Alt+A)</ToolTipText>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
@@ -70,6 +78,7 @@
     <!-- Ctrl+Shift+Alt+F -->
     <KeyBinding guid="guidSsmsSqlFormatterCmdSet" id="cmdidFormatSql" editor="guidVSStd97" key1="F" mod1="Control Shift Alt" />
     <KeyBinding guid="guidSsmsSqlFormatterCmdSet" id="cmdidCopyResultsExcel" editor="guidVSStd97" key1="X" mod1="Control Shift Alt" />
+    <KeyBinding guid="guidSsmsSqlFormatterCmdSet" id="cmdidAddResultsSheet" editor="guidVSStd97" key1="A" mod1="Control Shift Alt" />
   </KeyBindings>
 
   <Symbols>
@@ -83,6 +92,7 @@
       <IDSymbol name="cmdidCopyResultsExcel" value="0x0103" />
       <IDSymbol name="cmdidCopyResultsExcelContext" value="0x0104" />
       <IDSymbol name="cmdidOpenResultsExcel" value="0x0105" />
+      <IDSymbol name="cmdidAddResultsSheet" value="0x0106" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>

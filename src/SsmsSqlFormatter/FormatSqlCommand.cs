@@ -23,6 +23,7 @@ namespace SsmsSqlFormatter
         public const int CopyExcelCommandId = 0x0103;
         public const int CopyExcelContextCommandId = 0x0104;
         public const int OpenExcelCommandId = 0x0105;
+        public const int AddSheetCommandId = 0x0106;
 
         private readonly SsmsSqlFormatterPackage _package;
 
@@ -35,13 +36,118 @@ namespace SsmsSqlFormatter
             commandService.AddCommand(new MenuCommand(ExecuteCopyExcel, new CommandID(CommandSet, CopyExcelCommandId)));
             commandService.AddCommand(new MenuCommand(ExecuteCopyExcel, new CommandID(CommandSet, CopyExcelContextCommandId)));
             commandService.AddCommand(new MenuCommand(ExecuteOpenExcel, new CommandID(CommandSet, OpenExcelCommandId)));
+            commandService.AddCommand(new MenuCommand(ExecuteAddSheet, new CommandID(CommandSet, AddSheetCommandId)));
+        }
+
+        // Result sets queued by "Add Results as Sheet", exported together as one workbook.
+        private static readonly System.Collections.Generic.List<string> PendingSheets =
+            new System.Collections.Generic.List<string>();
+
+        /// <summary>
+        /// Acquires the results-grid text: tries the automatic copy, falls back to
+        /// whatever the user copied themselves, restores the user's copy when the
+        /// automatic copy grabbed the query editor's text instead, and refuses with
+        /// guidance when only query text or nothing is available.
+        /// </summary>
+        private bool TryAcquireResults(Options.GeneralOptions general, out string text)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            string before = ReadClipboardText();
+
+            if (general.ExcelSimulateCopyFirst)
+            {
+                bool copied = false;
+                try
+                {
+                    var dteCopy = (DTE2)Package.GetGlobalService(typeof(DTE));
+                    dteCopy.ExecuteCommand("Edit.CopyWithHeaders");
+                    System.Threading.Thread.Sleep(250);
+                    copied = true;
+                }
+                catch { /* command not available in this SSMS build */ }
+
+                if (!copied)
+                {
+                    try
+                    {
+                        System.Windows.Forms.SendKeys.SendWait("^+c");
+                        System.Threading.Thread.Sleep(350);
+                    }
+                    catch { /* fall through to whatever is on the clipboard */ }
+                }
+            }
+
+            text = ReadClipboardText();
+            if (string.IsNullOrEmpty(text)) text = before;
+
+            // The automatic copy can route to the query editor and overwrite a
+            // perfectly good grid copy with the query text. Restore the user's copy.
+            if (LooksLikeActiveQueryText(text) &&
+                !string.IsNullOrWhiteSpace(before) &&
+                !LooksLikeActiveQueryText(before))
+            {
+                text = before;
+            }
+
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                ShowInfo(
+                    "Nothing to convert - the clipboard is empty.\r\n\r\n" +
+                    "Copy your results first:\r\n" +
+                    "  1. Click in the results grid (Ctrl+A selects everything).\r\n" +
+                    "  2. Right-click > Copy with Headers, or press Ctrl+Shift+C.\r\n" +
+                    "  3. Run this command again.");
+                return false;
+            }
+
+            if (LooksLikeActiveQueryText(text))
+            {
+                ShowInfo(
+                    "That looks like the query text, not the results - the query " +
+                    "editor had focus when the copy ran.\r\n\r\n" +
+                    "Click anywhere inside the results grid first (Ctrl+A selects all " +
+                    "cells), then run this command again.");
+                return false;
+            }
+
+            return true;
         }
 
         /// <summary>
-        /// Copies the SSMS results grid to the clipboard in Excel table format
-        /// (CF_HTML), with headers, so a plain Ctrl+V in Excel pastes a real table.
-        /// Works by transforming the grid's own Copy-with-Headers output rather
-        /// than reaching into SSMS internals.
+        /// Queues the current result set as a worksheet. Copy each result set in
+        /// turn and run this for each; then Copy Results as Excel Table opens one
+        /// workbook containing every queued set on its own sheet.
+        /// </summary>
+        private void ExecuteAddSheet(object sender, EventArgs e)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            try
+            {
+                var general = _package.GetGeneralOptions();
+                if (!TryAcquireResults(general, out string text)) return;
+
+                if (PendingSheets.Count > 0 && PendingSheets[PendingSheets.Count - 1] == text)
+                {
+                    ShowInfo("This result set is already queued as sheet " + PendingSheets.Count +
+                             ". Copy the next result set, then run Add Results as Sheet again.");
+                    return;
+                }
+
+                PendingSheets.Add(text);
+                var dte = (DTE2)Package.GetGlobalService(typeof(DTE));
+                SetStatus(dte, $"Queued sheet {PendingSheets.Count}. Copy the next result set and press " +
+                               "Ctrl+Shift+Alt+A again, or Ctrl+Shift+Alt+X to open the workbook.");
+            }
+            catch (Exception ex)
+            {
+                ShowError("Add Results as Sheet failed: " + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Copies the SSMS results grid as an Excel table, or opens it as a
+        /// workbook, per the user's configured action. When sheets are queued via
+        /// Add Results as Sheet, everything opens together as one workbook.
         /// </summary>
         private void ExecuteCopyExcel(object sender, EventArgs e)
         {
@@ -49,73 +155,26 @@ namespace SsmsSqlFormatter
             try
             {
                 var general = _package.GetGeneralOptions();
-
-                string before = ReadClipboardText();
-
-                if (general.ExcelSimulateCopyFirst)
-                {
-                    // Ask SSMS itself to copy - more reliable than synthesising
-                    // keystrokes, and works regardless of which shortcut scheme
-                    // the user has configured.
-                    bool copied = false;
-                    try
-                    {
-                        var dteCopy = (DTE2)Package.GetGlobalService(typeof(DTE));
-                        dteCopy.ExecuteCommand("Edit.CopyWithHeaders");
-                        System.Threading.Thread.Sleep(250);
-                        copied = true;
-                    }
-                    catch { /* command not available in this SSMS build */ }
-
-                    if (!copied)
-                    {
-                        try
-                        {
-                            System.Windows.Forms.SendKeys.SendWait("^+c");
-                            System.Threading.Thread.Sleep(350);
-                        }
-                        catch { /* fall through to whatever is on the clipboard */ }
-                    }
-                }
-
-                string text = ReadClipboardText();
-
-                // If the simulated copy did nothing, use whatever the user copied
-                // themselves - that is the normal case for toolbar/menu invocation.
-                if (string.IsNullOrEmpty(text)) text = before;
-
-                if (string.IsNullOrWhiteSpace(text))
-                {
-                    ShowInfo(
-                        "Nothing to convert - the clipboard is empty.\r\n\r\n" +
-                        "Copy your results first:\r\n" +
-                        "  1. Click in the results grid (Ctrl+A selects everything).\r\n" +
-                        "  2. Right-click > Copy with Headers, or press Ctrl+Shift+C.\r\n" +
-                        "  3. Run this command again.\r\n\r\n" +
-                        "Tip: pressing Ctrl+Shift+Alt+X while the grid has focus does " +
-                        "the copy for you. A toolbar or menu click cannot, because " +
-                        "clicking moves focus out of the grid.");
-                    return;
-                }
-
-                if (LooksLikeActiveQueryText(text))
-                {
-                    ShowInfo(
-                        "That looks like the query text, not the results - the query " +
-                        "editor had focus when the copy ran, so the editor's content was " +
-                        "copied instead of the grid.\r\n\r\n" +
-                        "Click anywhere inside the results grid first (Ctrl+A selects all " +
-                        "cells), then run this command again.");
-                    return;
-                }
+                if (!TryAcquireResults(general, out string text)) return;
 
                 var style = BuildStyle(general);
+                var dte = (DTE2)Package.GetGlobalService(typeof(DTE));
+
+                // Queued multi-sheet export takes precedence: it can only be a workbook.
+                if (PendingSheets.Count > 0)
+                {
+                    var sheets = new System.Collections.Generic.List<string>(PendingSheets);
+                    if (sheets[sheets.Count - 1] != text) sheets.Add(text);
+                    PendingSheets.Clear();
+                    OpenWorkbook(sheets, style);
+                    SetStatus(dte, $"Workbook opened with {sheets.Count} sheet(s).");
+                    return;
+                }
 
                 if (general.ExcelAction == Options.ExcelResultAction.OpenInExcel)
                 {
-                    OpenInExcel(text, style);
-                    var dteOpen = (DTE2)Package.GetGlobalService(typeof(DTE));
-                    SetStatus(dteOpen, "Results opened in Excel.");
+                    OpenWorkbook(new[] { text }, style);
+                    SetStatus(dte, "Results opened in Excel.");
                     return;
                 }
 
@@ -128,16 +187,15 @@ namespace SsmsSqlFormatter
                         "Could not write the Excel table to the clipboard.\r\n\r\n" +
                         (clipError ?? "Unknown clipboard error.") + "\r\n\r\n" +
                         "Open the results in Excel directly instead? " +
-                        "(This writes a temporary file and launches it, bypassing the clipboard.)",
+                        "(This writes a temporary workbook and launches it, bypassing the clipboard.)",
                         "Format T-SQL Script",
                         MessageBoxButton.YesNo, MessageBoxImage.Warning);
 
                     if (fallback == MessageBoxResult.Yes)
-                        OpenInExcel(text, style);
+                        OpenWorkbook(new[] { text }, style);
                     return;
                 }
 
-                var dte = (DTE2)Package.GetGlobalService(typeof(DTE));
                 SetStatus(dte, $"Copied as Excel table: {rows} row(s) x {cols} column(s). Paste into Excel with Ctrl+V.");
             }
             catch (Exception ex)
@@ -145,6 +203,7 @@ namespace SsmsSqlFormatter
                 ShowError("Copy as Excel table failed: " + ex.Message);
             }
         }
+
 
         /// <summary>Reads clipboard text, retrying briefly - the clipboard is often locked momentarily by other apps.</summary>
         private static string ReadClipboardText()
@@ -198,11 +257,9 @@ namespace SsmsSqlFormatter
             }
         }
 
-
         /// <summary>
-        /// Writes the copied results straight to a temporary workbook and opens it.
-        /// Useful where clipboard access is restricted (elevated SSMS, remote
-        /// desktop sessions, locked-down security policies).
+        /// Writes the copied results straight to a workbook and opens it. Includes
+        /// any sheets queued via Add Results as Sheet.
         /// </summary>
         private void ExecuteOpenExcel(object sender, EventArgs e)
         {
@@ -210,36 +267,22 @@ namespace SsmsSqlFormatter
             try
             {
                 var general = _package.GetGeneralOptions();
-                string text = ReadClipboardText();
+                if (!TryAcquireResults(general, out string text)) return;
 
-                if (string.IsNullOrWhiteSpace(text))
-                {
-                    ShowInfo(
-                        "Nothing to open - the clipboard is empty.\r\n\r\n" +
-                        "Copy your results first: click in the results grid, press Ctrl+A, " +
-                        "then right-click > Copy with Headers (or Ctrl+Shift+C). " +
-                        "Then run this command again.");
-                    return;
-                }
+                var sheets = new System.Collections.Generic.List<string>(PendingSheets);
+                if (sheets.Count == 0 || sheets[sheets.Count - 1] != text) sheets.Add(text);
+                PendingSheets.Clear();
 
-                if (LooksLikeActiveQueryText(text))
-                {
-                    ShowInfo(
-                        "That looks like the query text, not the results - the query " +
-                        "editor had focus when the copy ran, so the editor's content was " +
-                        "copied instead of the grid.\r\n\r\n" +
-                        "Click anywhere inside the results grid first (Ctrl+A selects all " +
-                        "cells), then run this command again.");
-                    return;
-                }
-
-                OpenInExcel(text, BuildStyle(general));
+                OpenWorkbook(sheets, BuildStyle(general));
+                var dte = (DTE2)Package.GetGlobalService(typeof(DTE));
+                SetStatus(dte, $"Workbook opened with {sheets.Count} sheet(s).");
             }
             catch (Exception ex)
             {
                 ShowError("Could not open the results in Excel: " + ex.Message);
             }
         }
+
 
         private static string Hex(System.Drawing.Color c) =>
             "#" + c.R.ToString("X2") + c.G.ToString("X2") + c.B.ToString("X2");
@@ -299,11 +342,12 @@ namespace SsmsSqlFormatter
         }
 
         /// <summary>
-        /// Writes the results to a temporary genuine .xlsx workbook and launches it.
-        /// Dependable where clipboard access is restricted (elevated SSMS, remote
-        /// desktop sessions, locked-down security policies).
+        /// Writes the result sets to a temporary genuine .xlsx workbook (one sheet
+        /// per set) and launches it. Dependable where clipboard access is
+        /// restricted (elevated SSMS, remote desktop, locked-down policies).
         /// </summary>
-        private static void OpenInExcel(string tsv, Formatting.ExcelStyle style)
+        private static void OpenWorkbook(System.Collections.Generic.IList<string> tsvs,
+                                         Formatting.ExcelStyle style)
         {
             try
             {
@@ -311,7 +355,7 @@ namespace SsmsSqlFormatter
                     System.IO.Path.GetTempPath(),
                     "SsmsResults_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".xlsx");
 
-                Formatting.XlsxWriter.Write(path, tsv, style);
+                Formatting.XlsxWriter.Write(path, tsvs, style);
 
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path)
                 {
@@ -323,6 +367,7 @@ namespace SsmsSqlFormatter
                 ShowError("Could not open the results in Excel: " + ex.Message);
             }
         }
+
 
         private static bool ClipboardHasHtml()
         {

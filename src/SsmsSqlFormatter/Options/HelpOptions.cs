@@ -62,6 +62,6 @@ namespace SsmsSqlFormatter.Options
 
         [Category("4. Support")]
         [DisplayName("Version")]
-        public string Version => "1.8.1";
+        public string Version => "1.9.0";
     }
 }

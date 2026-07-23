@@ -16,26 +16,36 @@ namespace SsmsSqlFormatter.Formatting
     {
         public static void Write(string path, string tsv, ExcelStyle style)
         {
-            if (style == null) style = new ExcelStyle();
+            Write(path, new[] { tsv }, style);
+        }
 
-            var lines = tsv.Replace("\r\n", "\n").TrimEnd('\n').Split('\n');
-            int colCount = 0;
-            var rows = new string[lines.Length][];
-            for (int r = 0; r < lines.Length; r++)
-            {
-                rows[r] = lines[r].Split('\t');
-                if (rows[r].Length > colCount) colCount = rows[r].Length;
-            }
+        /// <summary>Writes one worksheet per TSV block - used for multi-result-set workbooks.</summary>
+        public static void Write(string path, System.Collections.Generic.IList<string> tsvs, ExcelStyle style)
+        {
+            if (style == null) style = new ExcelStyle();
+            int count = tsvs.Count;
 
             using (var fs = new FileStream(path, FileMode.Create, FileAccess.Write))
             using (var zip = new ZipArchive(fs, ZipArchiveMode.Create))
             {
-                AddEntry(zip, "[Content_Types].xml", ContentTypesXml());
+                AddEntry(zip, "[Content_Types].xml", ContentTypesXml(count));
                 AddEntry(zip, "_rels/.rels", RootRelsXml());
-                AddEntry(zip, "xl/workbook.xml", WorkbookXml());
-                AddEntry(zip, "xl/_rels/workbook.xml.rels", WorkbookRelsXml());
+                AddEntry(zip, "xl/workbook.xml", WorkbookXml(count));
+                AddEntry(zip, "xl/_rels/workbook.xml.rels", WorkbookRelsXml(count));
                 AddEntry(zip, "xl/styles.xml", StylesXml(style));
-                AddEntry(zip, "xl/worksheets/sheet1.xml", SheetXml(rows, colCount, style));
+
+                for (int i = 0; i < count; i++)
+                {
+                    var lines = tsvs[i].Replace("\r\n", "\n").TrimEnd('\n').Split('\n');
+                    int colCount = 0;
+                    var rows = new string[lines.Length][];
+                    for (int r = 0; r < lines.Length; r++)
+                    {
+                        rows[r] = lines[r].Split('\t');
+                        if (rows[r].Length > colCount) colCount = rows[r].Length;
+                    }
+                    AddEntry(zip, "xl/worksheets/sheet" + (i + 1) + ".xml", SheetXml(rows, colCount, style));
+                }
             }
         }
 
@@ -46,15 +56,21 @@ namespace SsmsSqlFormatter.Formatting
                 writer.Write(content);
         }
 
-        private static string ContentTypesXml() =>
-            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
-            "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">" +
-            "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>" +
-            "<Default Extension=\"xml\" ContentType=\"application/xml\"/>" +
-            "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
-            "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
-            "<Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>" +
-            "</Types>";
+        private static string ContentTypesXml(int sheetCount)
+        {
+            var sb = new StringBuilder();
+            sb.Append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>")
+              .Append("<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">")
+              .Append("<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>")
+              .Append("<Default Extension=\"xml\" ContentType=\"application/xml\"/>")
+              .Append("<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>");
+            for (int i = 1; i <= sheetCount; i++)
+                sb.Append("<Override PartName=\"/xl/worksheets/sheet").Append(i)
+                  .Append(".xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>");
+            sb.Append("<Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>")
+              .Append("</Types>");
+            return sb.ToString();
+        }
 
         private static string RootRelsXml() =>
             "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
@@ -62,18 +78,36 @@ namespace SsmsSqlFormatter.Formatting
             "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>" +
             "</Relationships>";
 
-        private static string WorkbookXml() =>
-            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
-            "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" " +
-            "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
-            "<sheets><sheet name=\"Results\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>";
+        private static string WorkbookXml(int sheetCount)
+        {
+            var sb = new StringBuilder();
+            sb.Append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>")
+              .Append("<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" ")
+              .Append("xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheets>");
+            for (int i = 1; i <= sheetCount; i++)
+            {
+                string name = sheetCount == 1 ? "Results" : "Results " + i;
+                sb.Append("<sheet name=\"").Append(name).Append("\" sheetId=\"").Append(i)
+                  .Append("\" r:id=\"rId").Append(i).Append("\"/>");
+            }
+            sb.Append("</sheets></workbook>");
+            return sb.ToString();
+        }
 
-        private static string WorkbookRelsXml() =>
-            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
-            "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" +
-            "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>" +
-            "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>" +
-            "</Relationships>";
+        private static string WorkbookRelsXml(int sheetCount)
+        {
+            var sb = new StringBuilder();
+            sb.Append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>")
+              .Append("<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">");
+            for (int i = 1; i <= sheetCount; i++)
+                sb.Append("<Relationship Id=\"rId").Append(i)
+                  .Append("\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet")
+                  .Append(i).Append(".xml\"/>");
+            sb.Append("<Relationship Id=\"rId").Append(sheetCount + 1)
+              .Append("\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>")
+              .Append("</Relationships>");
+            return sb.ToString();
+        }
 
         private static string StylesXml(ExcelStyle style)
         {
