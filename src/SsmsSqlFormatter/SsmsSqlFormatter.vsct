@@ -55,6 +55,14 @@
           <ToolTipText>Copy the results grid to the clipboard as an Excel table with headers</ToolTipText>
         </Strings>
       </Button>
+      <Button guid="guidSsmsSqlFormatterCmdSet" id="cmdidOpenResultsExcel" priority="0x0107" type="Button">
+        <Parent guid="guidSsmsSqlFormatterCmdSet" id="ToolsMenuGroup" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Open Results in Excel</ButtonText>
+          <ToolTipText>Write the copied results to a temporary workbook and open it in Excel (no clipboard needed)</ToolTipText>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
@@ -74,6 +82,7 @@
       <IDSymbol name="cmdidFormatterHelp" value="0x0102" />
       <IDSymbol name="cmdidCopyResultsExcel" value="0x0103" />
       <IDSymbol name="cmdidCopyResultsExcelContext" value="0x0104" />
+      <IDSymbol name="cmdidOpenResultsExcel" value="0x0105" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>

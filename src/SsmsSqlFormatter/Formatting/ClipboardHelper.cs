@@ -63,7 +63,7 @@ namespace SsmsSqlFormatter.Formatting
             // hold it for a moment, so retry before giving up.
             bool opened = false;
             int lastError = 0;
-            for (int attempt = 0; attempt < 12 && !opened; attempt++)
+            for (int attempt = 0; attempt < 20 && !opened; attempt++)
             {
                 opened = OpenClipboard(IntPtr.Zero);
                 if (!opened)
@@ -74,9 +74,21 @@ namespace SsmsSqlFormatter.Formatting
             }
             if (!opened)
             {
-                error = "Another application is holding the clipboard open " +
-                        "(Windows error " + lastError + "). Common causes are clipboard " +
-                        "managers, remote desktop sessions and security software.";
+                error = "Windows refused access to the clipboard (error " + lastError + ").";
+                if (lastError == 5)
+                {
+                    error += "\r\n\r\nError 5 means ACCESS DENIED, which usually means one of:" +
+                             "\r\n  - SSMS is running as Administrator while the clipboard is owned " +
+                             "by a normal-privilege application. Try running SSMS without elevation." +
+                             "\r\n  - You are working over Remote Desktop; restarting rdpclip.exe " +
+                             "(Task Manager > Details) usually clears it." +
+                             "\r\n  - Security software is blocking clipboard access.";
+                }
+                else
+                {
+                    error += " Common causes are clipboard managers, remote desktop " +
+                             "sessions and security software.";
+                }
                 return false;
             }
 

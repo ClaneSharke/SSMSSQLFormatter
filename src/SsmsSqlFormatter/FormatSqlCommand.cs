@@ -22,6 +22,7 @@ namespace SsmsSqlFormatter
         public const int HelpCommandId = 0x0102;
         public const int CopyExcelCommandId = 0x0103;
         public const int CopyExcelContextCommandId = 0x0104;
+        public const int OpenExcelCommandId = 0x0105;
 
         private readonly SsmsSqlFormatterPackage _package;
 
@@ -33,6 +34,7 @@ namespace SsmsSqlFormatter
             commandService.AddCommand(new MenuCommand(ExecuteHelp, new CommandID(CommandSet, HelpCommandId)));
             commandService.AddCommand(new MenuCommand(ExecuteCopyExcel, new CommandID(CommandSet, CopyExcelCommandId)));
             commandService.AddCommand(new MenuCommand(ExecuteCopyExcel, new CommandID(CommandSet, CopyExcelContextCommandId)));
+            commandService.AddCommand(new MenuCommand(ExecuteOpenExcel, new CommandID(CommandSet, OpenExcelCommandId)));
         }
 
         /// <summary>
@@ -96,21 +98,7 @@ namespace SsmsSqlFormatter
                     return;
                 }
 
-                var style = new Formatting.ExcelStyle
-                {
-                    FirstRowIsHeader = general.ExcelFirstRowIsHeader,
-                    ForceTextCells = general.ExcelForceTextCells,
-                    NullsAsEmpty = general.ExcelNullsAsEmpty,
-                    FontName = general.ExcelFontName,
-                    FontSize = general.ExcelFontSize,
-                    HeaderBold = general.ExcelHeaderBold,
-                    HeaderBackColor = general.ExcelHeaderBackColor,
-                    HeaderTextColor = general.ExcelHeaderTextColor,
-                    ShowBorders = general.ExcelShowBorders,
-                    BorderColor = general.ExcelBorderColor,
-                    BandedRows = general.ExcelBandedRows,
-                    BandColor = general.ExcelBandColor
-                };
+                var style = BuildStyle(general);
 
                 string cfHtml = Formatting.ExcelClipboard.BuildCfHtml(
                     text, style, out int rows, out int cols);
@@ -167,9 +155,14 @@ namespace SsmsSqlFormatter
         /// </summary>
         private static bool TrySetClipboard(string cfHtml, string plainText, out string error)
         {
-            error = null;
+            // Win32 first. The managed/OLE path can itself leave the clipboard
+            // locked, which then makes the Win32 attempt fail, so try the more
+            // predictable route before OLE gets involved.
+            if (Formatting.ClipboardHelper.SetHtmlAndText(cfHtml, plainText, out error))
+                return true;
 
-            // Managed path first - fine on most machines.
+            System.Threading.Thread.Sleep(150);
+
             try
             {
                 var data = new System.Windows.Forms.DataObject();
@@ -177,22 +170,64 @@ namespace SsmsSqlFormatter
                 data.SetData(System.Windows.Forms.DataFormats.UnicodeText, plainText);
                 data.SetData(System.Windows.Forms.DataFormats.Text, plainText);
                 System.Windows.Forms.Clipboard.SetDataObject(data, true, 6, 120);
-                // No exception means the data went on. Verification via ContainsData
-                // is itself unreliable on locked-down machines, so don't let a failed
-                // check discard a write that actually succeeded.
                 return true;
             }
             catch (Exception ex)
             {
-                error = ex.Message;
+                error = (error ?? "") + "  Managed clipboard also failed: " + ex.Message;
+                return false;
             }
+        }
 
-            // Win32 fallback - bypasses OLE, which is what usually fails.
-            if (Formatting.ClipboardHelper.SetHtmlAndText(cfHtml, plainText, out string win32Error))
-                return true;
 
-            error = win32Error ?? error;
-            return false;
+        /// <summary>
+        /// Writes the copied results straight to a temporary workbook and opens it.
+        /// Useful where clipboard access is restricted (elevated SSMS, remote
+        /// desktop sessions, locked-down security policies).
+        /// </summary>
+        private void ExecuteOpenExcel(object sender, EventArgs e)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            try
+            {
+                var general = _package.GetGeneralOptions();
+                string text = ReadClipboardText();
+
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    ShowInfo(
+                        "Nothing to open - the clipboard is empty.\r\n\r\n" +
+                        "Copy your results first: click in the results grid, press Ctrl+A, " +
+                        "then right-click > Copy with Headers (or Ctrl+Shift+C). " +
+                        "Then run this command again.");
+                    return;
+                }
+
+                OpenInExcel(text, BuildStyle(general));
+            }
+            catch (Exception ex)
+            {
+                ShowError("Could not open the results in Excel: " + ex.Message);
+            }
+        }
+
+        private static Formatting.ExcelStyle BuildStyle(Options.GeneralOptions general)
+        {
+            return new Formatting.ExcelStyle
+            {
+                FirstRowIsHeader = general.ExcelFirstRowIsHeader,
+                ForceTextCells = general.ExcelForceTextCells,
+                NullsAsEmpty = general.ExcelNullsAsEmpty,
+                FontName = general.ExcelFontName,
+                FontSize = general.ExcelFontSize,
+                HeaderBold = general.ExcelHeaderBold,
+                HeaderBackColor = general.ExcelHeaderBackColor,
+                HeaderTextColor = general.ExcelHeaderTextColor,
+                ShowBorders = general.ExcelShowBorders,
+                BorderColor = general.ExcelBorderColor,
+                BandedRows = general.ExcelBandedRows,
+                BandColor = general.ExcelBandColor
+            };
         }
 
         /// <summary>
