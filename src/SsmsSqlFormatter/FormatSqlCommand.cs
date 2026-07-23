@@ -52,16 +52,28 @@ namespace SsmsSqlFormatter
 
                 if (general.ExcelSimulateCopyFirst)
                 {
-                    // Ask the focused control (the results grid) to Copy with Headers.
-                    // This only reaches the grid when the grid still has focus - i.e.
-                    // when invoked by keyboard shortcut. Toolbar and menu clicks move
-                    // focus away, so we fall back to whatever is already copied.
+                    // Ask SSMS itself to copy - more reliable than synthesising
+                    // keystrokes, and works regardless of which shortcut scheme
+                    // the user has configured.
+                    bool copied = false;
                     try
                     {
-                        System.Windows.Forms.SendKeys.SendWait("^+c");
-                        System.Threading.Thread.Sleep(350);
+                        var dteCopy = (DTE2)Package.GetGlobalService(typeof(DTE));
+                        dteCopy.ExecuteCommand("Edit.CopyWithHeaders");
+                        System.Threading.Thread.Sleep(250);
+                        copied = true;
                     }
-                    catch { /* SendKeys can fail in some hosts; fall through */ }
+                    catch { /* command not available in this SSMS build */ }
+
+                    if (!copied)
+                    {
+                        try
+                        {
+                            System.Windows.Forms.SendKeys.SendWait("^+c");
+                            System.Threading.Thread.Sleep(350);
+                        }
+                        catch { /* fall through to whatever is on the clipboard */ }
+                    }
                 }
 
                 string text = ReadClipboardText();
@@ -103,13 +115,13 @@ namespace SsmsSqlFormatter
                 string cfHtml = Formatting.ExcelClipboard.BuildCfHtml(
                     text, style, out int rows, out int cols);
 
-                if (!TrySetClipboard(cfHtml, text))
+                if (!TrySetClipboard(cfHtml, text, out string clipError))
                 {
                     ShowError(
-                        "Could not write the Excel table to the clipboard - another " +
-                        "application is holding it (clipboard managers, remote desktop " +
-                        "sessions and antivirus tools are common causes).\r\n\r\n" +
-                        "Close or pause any clipboard manager and run the command again.");
+                        "Could not write the Excel table to the clipboard.\r\n\r\n" +
+                        (clipError ?? "Unknown clipboard error.") + "\r\n\r\n" +
+                        "Try closing or pausing any clipboard manager, then run the " +
+                        "command again. Your plain-text copy is unaffected.");
                     return;
                 }
 
@@ -148,24 +160,31 @@ namespace SsmsSqlFormatter
         /// application (clipboard manager, remote desktop, antivirus) momentarily
         /// holds the clipboard. Verifies the result rather than trusting exceptions.
         /// </summary>
-        private static bool TrySetClipboard(string cfHtml, string plainText)
+        private static bool TrySetClipboard(string cfHtml, string plainText, out string error)
         {
+            error = null;
+
+            // Managed path first - fine on most machines.
             try
             {
                 var data = new System.Windows.Forms.DataObject();
                 data.SetData(System.Windows.Forms.DataFormats.Html, cfHtml);
                 data.SetData(System.Windows.Forms.DataFormats.UnicodeText, plainText);
                 data.SetData(System.Windows.Forms.DataFormats.Text, plainText);
-
-                // copy: true, 10 retries, 120ms apart.
-                System.Windows.Forms.Clipboard.SetDataObject(data, true, 10, 120);
-                return true;
+                System.Windows.Forms.Clipboard.SetDataObject(data, true, 6, 120);
+                if (ClipboardHasHtml()) return true;
             }
-            catch
+            catch (Exception ex)
             {
-                // The data may have landed anyway; verify before reporting failure.
-                return ClipboardHasHtml();
+                error = ex.Message;
             }
+
+            // Win32 fallback - bypasses OLE, which is what usually fails.
+            if (Formatting.ClipboardHelper.SetHtmlAndText(cfHtml, plainText, out string win32Error))
+                return true;
+
+            error = win32Error ?? error;
+            return false;
         }
 
         private static bool ClipboardHasHtml()
