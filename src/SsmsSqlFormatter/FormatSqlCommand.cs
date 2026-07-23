@@ -95,7 +95,11 @@ namespace SsmsSqlFormatter
 
                 if (!TrySetClipboard(data))
                 {
-                    ShowError("Could not write to the clipboard - another application is holding it. Try again.");
+                    ShowError(
+                        "Could not confirm the clipboard was written - another application " +
+                        "may be holding it (clipboard managers, remote desktop sessions and " +
+                        "antivirus tools are common causes).\r\n\r\n" +
+                        "Try pasting into Excel anyway; if nothing arrives, run the command again.");
                     return;
                 }
 
@@ -127,21 +131,43 @@ namespace SsmsSqlFormatter
             return null;
         }
 
+        /// <summary>
+        /// Writes the data object to the clipboard. SetDataObject frequently throws
+        /// even though the data has in fact landed - clipboard managers, remote
+        /// desktop sessions and antivirus tools commonly make the flush step fail.
+        /// So rather than trusting the exception, verify what's actually on the
+        /// clipboard before reporting a failure.
+        /// </summary>
         private static bool TrySetClipboard(System.Windows.DataObject data)
         {
-            for (int attempt = 0; attempt < 5; attempt++)
+            for (int attempt = 0; attempt < 4; attempt++)
             {
                 try
                 {
-                    System.Windows.Clipboard.SetDataObject(data, true);
+                    // copy:true persists the data after SSMS exits; it is also the
+                    // step most likely to throw spuriously.
+                    System.Windows.Clipboard.SetDataObject(data, attempt == 0);
                     return true;
                 }
                 catch
                 {
+                    if (ClipboardHasHtml()) return true;   // it worked despite the throw
                     System.Threading.Thread.Sleep(60);
                 }
             }
-            return false;
+            return ClipboardHasHtml();
+        }
+
+        private static bool ClipboardHasHtml()
+        {
+            try
+            {
+                return System.Windows.Clipboard.ContainsData(System.Windows.DataFormats.Html);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private void ExecuteHelp(object sender, EventArgs e)
