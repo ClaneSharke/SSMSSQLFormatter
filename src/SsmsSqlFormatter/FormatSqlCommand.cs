@@ -84,22 +84,32 @@ namespace SsmsSqlFormatter
                     return;
                 }
 
+                var style = new Formatting.ExcelStyle
+                {
+                    FirstRowIsHeader = general.ExcelFirstRowIsHeader,
+                    ForceTextCells = general.ExcelForceTextCells,
+                    NullsAsEmpty = general.ExcelNullsAsEmpty,
+                    FontName = general.ExcelFontName,
+                    FontSize = general.ExcelFontSize,
+                    HeaderBold = general.ExcelHeaderBold,
+                    HeaderBackColor = general.ExcelHeaderBackColor,
+                    HeaderTextColor = general.ExcelHeaderTextColor,
+                    ShowBorders = general.ExcelShowBorders,
+                    BorderColor = general.ExcelBorderColor,
+                    BandedRows = general.ExcelBandedRows,
+                    BandColor = general.ExcelBandColor
+                };
+
                 string cfHtml = Formatting.ExcelClipboard.BuildCfHtml(
-                    text, general.ExcelForceTextCells, general.ExcelNullsAsEmpty,
-                    general.ExcelFirstRowIsHeader,
-                    out int rows, out int cols);
+                    text, style, out int rows, out int cols);
 
-                var data = new System.Windows.DataObject();
-                data.SetData(System.Windows.DataFormats.Html, cfHtml);
-                data.SetData(System.Windows.DataFormats.UnicodeText, text);
-
-                if (!TrySetClipboard(data))
+                if (!TrySetClipboard(cfHtml, text))
                 {
                     ShowError(
-                        "Could not confirm the clipboard was written - another application " +
-                        "may be holding it (clipboard managers, remote desktop sessions and " +
-                        "antivirus tools are common causes).\r\n\r\n" +
-                        "Try pasting into Excel anyway; if nothing arrives, run the command again.");
+                        "Could not write the Excel table to the clipboard - another " +
+                        "application is holding it (clipboard managers, remote desktop " +
+                        "sessions and antivirus tools are common causes).\r\n\r\n" +
+                        "Close or pause any clipboard manager and run the command again.");
                     return;
                 }
 
@@ -119,8 +129,8 @@ namespace SsmsSqlFormatter
             {
                 try
                 {
-                    if (System.Windows.Clipboard.ContainsText())
-                        return System.Windows.Clipboard.GetText();
+                    if (System.Windows.Forms.Clipboard.ContainsText())
+                        return System.Windows.Forms.Clipboard.GetText();
                     return null;
                 }
                 catch
@@ -132,42 +142,47 @@ namespace SsmsSqlFormatter
         }
 
         /// <summary>
-        /// Writes the data object to the clipboard. SetDataObject frequently throws
-        /// even though the data has in fact landed - clipboard managers, remote
-        /// desktop sessions and antivirus tools commonly make the flush step fail.
-        /// So rather than trusting the exception, verify what's actually on the
-        /// clipboard before reporting a failure.
+        /// Writes both the Excel (CF_HTML) and plain-text flavours to the clipboard.
+        /// Uses the WinForms clipboard, whose SetDataObject overload retries
+        /// internally - the WPF equivalent has no retry and fails whenever another
+        /// application (clipboard manager, remote desktop, antivirus) momentarily
+        /// holds the clipboard. Verifies the result rather than trusting exceptions.
         /// </summary>
-        private static bool TrySetClipboard(System.Windows.DataObject data)
+        private static bool TrySetClipboard(string cfHtml, string plainText)
         {
-            for (int attempt = 0; attempt < 4; attempt++)
+            try
             {
-                try
-                {
-                    // copy:true persists the data after SSMS exits; it is also the
-                    // step most likely to throw spuriously.
-                    System.Windows.Clipboard.SetDataObject(data, attempt == 0);
-                    return true;
-                }
-                catch
-                {
-                    if (ClipboardHasHtml()) return true;   // it worked despite the throw
-                    System.Threading.Thread.Sleep(60);
-                }
+                var data = new System.Windows.Forms.DataObject();
+                data.SetData(System.Windows.Forms.DataFormats.Html, cfHtml);
+                data.SetData(System.Windows.Forms.DataFormats.UnicodeText, plainText);
+                data.SetData(System.Windows.Forms.DataFormats.Text, plainText);
+
+                // copy: true, 10 retries, 120ms apart.
+                System.Windows.Forms.Clipboard.SetDataObject(data, true, 10, 120);
+                return true;
             }
-            return ClipboardHasHtml();
+            catch
+            {
+                // The data may have landed anyway; verify before reporting failure.
+                return ClipboardHasHtml();
+            }
         }
 
         private static bool ClipboardHasHtml()
         {
-            try
+            for (int attempt = 0; attempt < 3; attempt++)
             {
-                return System.Windows.Clipboard.ContainsData(System.Windows.DataFormats.Html);
+                try
+                {
+                    return System.Windows.Forms.Clipboard.ContainsData(
+                        System.Windows.Forms.DataFormats.Html);
+                }
+                catch
+                {
+                    System.Threading.Thread.Sleep(80);
+                }
             }
-            catch
-            {
-                return false;
-            }
+            return false;
         }
 
         private void ExecuteHelp(object sender, EventArgs e)

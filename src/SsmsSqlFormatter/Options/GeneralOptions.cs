@@ -210,6 +210,49 @@ namespace SsmsSqlFormatter.Options
         [Description("Convert the grid's literal 'NULL' text into empty cells when pasting into Excel.")]
         public bool ExcelNullsAsEmpty { get; set; } = false;
 
+        // ---------- Excel appearance ----------
+        [Category("8. Excel appearance")]
+        [DisplayName("Font name")]
+        [Description("Font applied to the pasted table, e.g. Calibri, Arial, Consolas.")]
+        public string ExcelFontName { get; set; } = "Calibri";
+
+        [Category("8. Excel appearance")]
+        [DisplayName("Font size (pt)")]
+        public int ExcelFontSize { get; set; } = 11;
+
+        [Category("8. Excel appearance")]
+        [DisplayName("Bold header row")]
+        public bool ExcelHeaderBold { get; set; } = true;
+
+        [Category("8. Excel appearance")]
+        [DisplayName("Header background colour")]
+        [Description("Hex colour such as #D9E1F2 (light blue), #DDEBF7, #FCE4D6 (peach), or a CSS colour name. Invalid values fall back to the default.")]
+        public string ExcelHeaderBackColor { get; set; } = "#D9E1F2";
+
+        [Category("8. Excel appearance")]
+        [DisplayName("Header text colour")]
+        [Description("Hex colour such as #000000 (black) or #FFFFFF (white for dark headers).")]
+        public string ExcelHeaderTextColor { get; set; } = "#000000";
+
+        [Category("8. Excel appearance")]
+        [DisplayName("Show cell borders")]
+        public bool ExcelShowBorders { get; set; } = true;
+
+        [Category("8. Excel appearance")]
+        [DisplayName("Border colour")]
+        [Description("Hex colour for cell borders, e.g. #B4C6E7 or #BFBFBF.")]
+        public string ExcelBorderColor { get; set; } = "#B4C6E7";
+
+        [Category("8. Excel appearance")]
+        [DisplayName("Banded rows")]
+        [Description("Shade every second data row for readability.")]
+        public bool ExcelBandedRows { get; set; } = false;
+
+        [Category("8. Excel appearance")]
+        [DisplayName("Band colour")]
+        [Description("Hex colour used for the shaded rows when 'Banded rows' is on.")]
+        public string ExcelBandColor { get; set; } = "#F2F6FC";
+
         // ---------- Safety ----------
         [Category("6. Safety")]
         [DisplayName("Preserve comments")]

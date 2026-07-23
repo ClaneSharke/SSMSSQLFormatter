@@ -1,8 +1,30 @@
 using System;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace SsmsSqlFormatter.Formatting
 {
+    /// <summary>Visual styling for the Excel table produced by <see cref="ExcelClipboard"/>.</summary>
+    public class ExcelStyle
+    {
+        public bool FirstRowIsHeader = true;
+        public bool ForceTextCells = true;
+        public bool NullsAsEmpty = false;
+
+        public string FontName = "Calibri";
+        public int FontSize = 11;
+
+        public bool HeaderBold = true;
+        public string HeaderBackColor = "#D9E1F2";
+        public string HeaderTextColor = "#000000";
+
+        public bool ShowBorders = true;
+        public string BorderColor = "#B4C6E7";
+
+        public bool BandedRows = false;
+        public string BandColor = "#F2F6FC";
+    }
+
     /// <summary>
     /// Converts the tab-separated text that SSMS's results grid places on the
     /// clipboard ("Copy with Headers") into CF_HTML - the clipboard format Excel
@@ -11,35 +33,63 @@ namespace SsmsSqlFormatter.Formatting
     /// </summary>
     public static class ExcelClipboard
     {
-        public static string BuildCfHtml(string tsv, bool forceTextCells, bool nullsAsEmpty,
-                                         bool firstRowIsHeader,
+        public static string BuildCfHtml(string tsv, ExcelStyle style,
                                          out int rowCount, out int colCount)
         {
+            if (style == null) style = new ExcelStyle();
+
+            string font = SanitizeFont(style.FontName);
+            int size = style.FontSize < 6 || style.FontSize > 72 ? 11 : style.FontSize;
+            string headerBack = SanitizeColor(style.HeaderBackColor, "#D9E1F2");
+            string headerText = SanitizeColor(style.HeaderTextColor, "#000000");
+            string borderCol = SanitizeColor(style.BorderColor, "#B4C6E7");
+            string bandCol = SanitizeColor(style.BandColor, "#F2F6FC");
+
+            string cellBorder = style.ShowBorders
+                ? $"border:1px solid {borderCol};" : "border:none;";
+
             var lines = tsv.Replace("\r\n", "\n").TrimEnd('\n').Split('\n');
             var sb = new StringBuilder(tsv.Length * 2);
-            sb.Append("<table border=\"1\" style=\"border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11pt;\">");
 
-            string tdStyle = forceTextCells
-                ? " style=\"mso-number-format:'\\@';padding:2px 6px;\""
-                : " style=\"padding:2px 6px;\"";
-            const string thStyle = " style=\"background:#D9E1F2;font-weight:bold;padding:2px 6px;\"";
+            sb.Append("<table style=\"border-collapse:collapse;")
+              .Append("font-family:").Append(font).Append(",Arial,sans-serif;")
+              .Append("font-size:").Append(size).Append("pt;\">");
+
+            string numberFormat = style.ForceTextCells ? "mso-number-format:'\\@';" : "";
 
             rowCount = 0;
             colCount = 0;
+            int dataRow = 0;
 
             for (int r = 0; r < lines.Length; r++)
             {
                 var cells = lines[r].Split('\t');
                 if (cells.Length > colCount) colCount = cells.Length;
-                bool header = firstRowIsHeader && r == 0;
+
+                bool header = style.FirstRowIsHeader && r == 0;
+                string rowStyle;
+
+                if (header)
+                {
+                    rowStyle = $"background:{headerBack};color:{headerText};"
+                             + (style.HeaderBold ? "font-weight:bold;" : "")
+                             + cellBorder + "padding:2px 6px;";
+                }
+                else
+                {
+                    bool band = style.BandedRows && (dataRow % 2 == 1);
+                    rowStyle = (band ? $"background:{bandCol};" : "")
+                             + numberFormat + cellBorder + "padding:2px 6px;";
+                    dataRow++;
+                }
+
+                string tag = header ? "th" : "td";
                 sb.Append("<tr>");
                 foreach (var raw in cells)
                 {
                     string value = raw;
-                    if (nullsAsEmpty && value == "NULL") value = "";
-                    string tag = header ? "th" : "td";
-                    string style = header ? thStyle : tdStyle;
-                    sb.Append('<').Append(tag).Append(style).Append('>')
+                    if (style.NullsAsEmpty && value == "NULL") value = "";
+                    sb.Append('<').Append(tag).Append(" style=\"").Append(rowStyle).Append("\">")
                       .Append(HtmlEncode(value))
                       .Append("</").Append(tag).Append('>');
                 }
@@ -49,6 +99,25 @@ namespace SsmsSqlFormatter.Formatting
             sb.Append("</table>");
 
             return WrapCfHtml(sb.ToString());
+        }
+
+        /// <summary>Accepts "#RRGGBB", "RRGGBB", or a plain CSS colour name; falls back when invalid.</summary>
+        private static string SanitizeColor(string value, string fallback)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return fallback;
+            value = value.Trim();
+            if (Regex.IsMatch(value, "^#?[0-9A-Fa-f]{6}$"))
+                return value.StartsWith("#") ? value : "#" + value;
+            if (Regex.IsMatch(value, "^[A-Za-z]{3,20}$"))
+                return value;
+            return fallback;
+        }
+
+        private static string SanitizeFont(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return "Calibri";
+            value = value.Trim();
+            return Regex.IsMatch(value, "^[A-Za-z0-9 ]{1,40}$") ? value : "Calibri";
         }
 
         private static string HtmlEncode(string s)
@@ -68,7 +137,6 @@ namespace SsmsSqlFormatter.Formatting
             const string htmlStart = "<html><body>\r\n<!--StartFragment-->";
             const string htmlEnd = "<!--EndFragment-->\r\n</body></html>";
 
-            // Header length is constant because the numbers are zero-padded to 10 digits.
             int headerLen = Encoding.UTF8.GetByteCount(string.Format(headerFormat, 0, 0, 0, 0));
             int startHtml = headerLen;
             int startFragment = startHtml + Encoding.UTF8.GetByteCount(htmlStart);
