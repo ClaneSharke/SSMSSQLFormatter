@@ -62,28 +62,33 @@ namespace SsmsSqlFormatter
             {
                 try { System.Windows.Forms.Clipboard.Clear(); } catch { /* best effort */ }
 
-                bool copied = false;
+                // Send the grid's Copy-with-Headers keystroke to whatever control
+                // actually has focus. (The automation command Edit.CopyWithHeaders
+                // is deliberately NOT used: on some SSMS builds it routes to the
+                // query editor regardless of focus and copies the query text.)
                 try
                 {
-                    var dteCopy = (DTE2)Package.GetGlobalService(typeof(DTE));
-                    dteCopy.ExecuteCommand("Edit.CopyWithHeaders");
-                    System.Threading.Thread.Sleep(250);
-                    copied = true;
+                    System.Windows.Forms.SendKeys.SendWait("^+c");
+                    System.Threading.Thread.Sleep(400);
                 }
-                catch { /* command not available in this SSMS build */ }
-
-                if (!copied)
-                {
-                    try
-                    {
-                        System.Windows.Forms.SendKeys.SendWait("^+c");
-                        System.Threading.Thread.Sleep(350);
-                    }
-                    catch { /* fall through */ }
-                }
+                catch { /* fall through */ }
             }
 
             string after = ReadClipboardText();
+
+            // Some grids/builds only respond to plain copy; if nothing fresh
+            // arrived, try Ctrl+C once before giving up.
+            if (general.ExcelSimulateCopyFirst &&
+                (string.IsNullOrWhiteSpace(after) || (after == before && !LooksLikeGridData(after))))
+            {
+                try
+                {
+                    System.Windows.Forms.SendKeys.SendWait("^c");
+                    System.Threading.Thread.Sleep(400);
+                    after = ReadClipboardText();
+                }
+                catch { /* keep what we have */ }
+            }
 
             if (!string.IsNullOrWhiteSpace(after) && after != before)
             {
@@ -99,11 +104,14 @@ namespace SsmsSqlFormatter
             else
             {
                 ShowInfo(
-                    "No result data was captured - the results grid was not focused, " +
-                    "so nothing (or unrelated clipboard content) was available. " +
-                    "Nothing was exported.\r\n\r\n" +
-                    "Click anywhere inside the results grid, press Ctrl+A to select " +
-                    "all cells, then run this command again.");
+                    "No result data was captured, so nothing was exported.\r\n\r\n" +
+                    "The capture works by sending a copy keystroke to the focused " +
+                    "control, so the results grid must have focus:\r\n" +
+                    "  - Click inside the results grid, press Ctrl+A, then use the " +
+                    "KEYBOARD shortcut Ctrl+Shift+Alt+X.\r\n" +
+                    "  - Using a toolbar button or menu instead? Copy the grid " +
+                    "yourself first (Ctrl+A, then Ctrl+Shift+C), then click the " +
+                    "button - your copy will be used.");
                 return false;
             }
 
