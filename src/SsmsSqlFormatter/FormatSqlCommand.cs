@@ -219,6 +219,9 @@ namespace SsmsSqlFormatter
             }
         }
 
+        private static string Hex(System.Drawing.Color c) =>
+            "#" + c.R.ToString("X2") + c.G.ToString("X2") + c.B.ToString("X2");
+
         private static Formatting.ExcelStyle BuildStyle(Options.GeneralOptions general)
         {
             return new Formatting.ExcelStyle
@@ -229,12 +232,12 @@ namespace SsmsSqlFormatter
                 FontName = general.ExcelFontName,
                 FontSize = general.ExcelFontSize,
                 HeaderBold = general.ExcelHeaderBold,
-                HeaderBackColor = general.ExcelHeaderBackColor,
-                HeaderTextColor = general.ExcelHeaderTextColor,
+                HeaderBackColor = Hex(general.ExcelHeaderBackColor),
+                HeaderTextColor = Hex(general.ExcelHeaderTextColor),
                 ShowBorders = general.ExcelShowBorders,
-                BorderColor = general.ExcelBorderColor,
+                BorderColor = Hex(general.ExcelBorderColor),
                 BandedRows = general.ExcelBandedRows,
-                BandColor = general.ExcelBandColor
+                BandColor = Hex(general.ExcelBandColor)
             };
         }
 

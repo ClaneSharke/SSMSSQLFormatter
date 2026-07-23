@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Drawing;
 using Microsoft.VisualStudio.Shell;
 
 namespace SsmsSqlFormatter.Options
@@ -239,13 +240,13 @@ namespace SsmsSqlFormatter.Options
 
         [Category("8. Excel appearance")]
         [DisplayName("Header background colour")]
-        [Description("Hex colour such as #D9E1F2 (light blue), #DDEBF7, #FCE4D6 (peach), or a CSS colour name. Invalid values fall back to the default.")]
-        public string ExcelHeaderBackColor { get; set; } = "#D9E1F2";
+        [Description("Background colour of the header row. Click the dropdown for a colour picker.")]
+        public Color ExcelHeaderBackColor { get; set; } = ColorTranslator.FromHtml("#D9E1F2");
 
         [Category("8. Excel appearance")]
         [DisplayName("Header text colour")]
-        [Description("Hex colour such as #000000 (black) or #FFFFFF (white for dark headers).")]
-        public string ExcelHeaderTextColor { get; set; } = "#000000";
+        [Description("Text colour of the header row - use white for dark header backgrounds.")]
+        public Color ExcelHeaderTextColor { get; set; } = Color.Black;
 
         [Category("8. Excel appearance")]
         [DisplayName("Show cell borders")]
@@ -253,8 +254,8 @@ namespace SsmsSqlFormatter.Options
 
         [Category("8. Excel appearance")]
         [DisplayName("Border colour")]
-        [Description("Hex colour for cell borders, e.g. #B4C6E7 or #BFBFBF.")]
-        public string ExcelBorderColor { get; set; } = "#B4C6E7";
+        [Description("Colour of the cell borders when 'Show cell borders' is on.")]
+        public Color ExcelBorderColor { get; set; } = ColorTranslator.FromHtml("#B4C6E7");
 
         [Category("8. Excel appearance")]
         [DisplayName("Banded rows")]
@@ -263,8 +264,8 @@ namespace SsmsSqlFormatter.Options
 
         [Category("8. Excel appearance")]
         [DisplayName("Band colour")]
-        [Description("Hex colour used for the shaded rows when 'Banded rows' is on.")]
-        public string ExcelBandColor { get; set; } = "#F2F6FC";
+        [Description("Shade used for alternate rows when 'Banded rows' is on.")]
+        public Color ExcelBandColor { get; set; } = ColorTranslator.FromHtml("#F2F6FC");
 
         // ---------- Safety ----------
         [Category("6. Safety")]
