@@ -43,16 +43,16 @@
         <Parent guid="guidSsmsSqlFormatterCmdSet" id="ToolsMenuGroup" />
         <CommandFlag>DynamicVisibility</CommandFlag>
         <Strings>
-          <ButtonText>Copy Results as Excel Table</ButtonText>
-          <ToolTipText>Copy the results grid to the clipboard as an Excel table with headers (Ctrl+Shift+Alt+X)</ToolTipText>
+          <ButtonText>Export Results to Excel</ButtonText>
+          <ToolTipText>Open the results grid as a styled Excel workbook (Ctrl+Shift+Alt+X)</ToolTipText>
         </Strings>
       </Button>
       <Button guid="guidSsmsSqlFormatterCmdSet" id="cmdidCopyResultsExcelContext" priority="0x0106" type="Button">
         <Parent guid="guidSsmsSqlFormatterCmdSet" id="EditorContextGroup" />
         <CommandFlag>DynamicVisibility</CommandFlag>
         <Strings>
-          <ButtonText>Copy Results as Excel Table</ButtonText>
-          <ToolTipText>Copy the results grid to the clipboard as an Excel table with headers</ToolTipText>
+          <ButtonText>Export Results to Excel</ButtonText>
+          <ToolTipText>Open the results grid as a styled Excel workbook</ToolTipText>
         </Strings>
       </Button>
       <Button guid="guidSsmsSqlFormatterCmdSet" id="cmdidOpenResultsExcel" priority="0x0107" type="Button">
@@ -68,7 +68,7 @@
         <CommandFlag>DynamicVisibility</CommandFlag>
         <Strings>
           <ButtonText>Add Results as Sheet</ButtonText>
-          <ToolTipText>Queue the copied result set as a worksheet; export all queued sets to one workbook with Ctrl+Shift+Alt+X (Ctrl+Shift+Alt+A)</ToolTipText>
+          <ToolTipText>Queue the current result set as a worksheet; Ctrl+Shift+Alt+X then opens one workbook with all queued sets (Ctrl+Shift+Alt+A)</ToolTipText>
         </Strings>
       </Button>
     </Buttons>

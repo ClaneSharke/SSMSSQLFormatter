@@ -35,14 +35,6 @@ namespace SsmsSqlFormatter.Options
         Leading
     }
 
-    public enum ExcelResultAction
-    {
-        /// <summary>Put an Excel-format table on the clipboard for Ctrl+V.</summary>
-        CopyToClipboard,
-        /// <summary>Write a real .xlsx workbook and open it - no clipboard involved.</summary>
-        OpenInExcel
-    }
-
     public class GeneralOptions : DialogPage
     {
         // ---------- Engine ----------
@@ -199,27 +191,22 @@ namespace SsmsSqlFormatter.Options
         public bool TrimTrailingWhitespace { get; set; } = true;
 
         // ---------- Copy results for Excel ----------
-        [Category("7. Copy results for Excel")]
-        [DisplayName("What Ctrl+Shift+Alt+X does")]
-        [Description("CopyToClipboard = put an Excel-format table on the clipboard for Ctrl+V. OpenInExcel = write a real .xlsx workbook and open it immediately - no clipboard involved, so it always works even when SSMS runs elevated or over remote desktop.")]
-        public ExcelResultAction ExcelAction { get; set; } = ExcelResultAction.CopyToClipboard;
-
-        [Category("7. Copy results for Excel")]
+        [Category("7. Export results to Excel")]
         [DisplayName("Try to copy the grid automatically")]
         [Description("Sends the grid's Copy-with-Headers keystroke before converting. This only works when the results grid still has focus, i.e. when you use the Ctrl+Shift+Alt+X shortcut - clicking a toolbar button or menu item moves focus away, in which case whatever you copied yourself is converted instead.")]
         public bool ExcelSimulateCopyFirst { get; set; } = true;
 
-        [Category("7. Copy results for Excel")]
+        [Category("7. Export results to Excel")]
         [DisplayName("First row contains headers")]
         [Description("Format the first copied row as a bold header row. Turn this off if you copied without headers (plain Ctrl+C), so the first data row isn't styled as a header.")]
         public bool ExcelFirstRowIsHeader { get; set; } = true;
 
-        [Category("7. Copy results for Excel")]
+        [Category("7. Export results to Excel")]
         [DisplayName("Paste all cells as text")]
         [Description("Marks every data cell as Text so Excel keeps leading zeros and doesn't turn long numbers into scientific notation or ID-like values into dates. Disable to let Excel auto-detect types (numbers become summable).")]
         public bool ExcelForceTextCells { get; set; } = true;
 
-        [Category("7. Copy results for Excel")]
+        [Category("7. Export results to Excel")]
         [DisplayName("Paste NULL as empty cells")]
         [Description("Convert the grid's literal 'NULL' text into empty cells when pasting into Excel.")]
         public bool ExcelNullsAsEmpty { get; set; } = false;

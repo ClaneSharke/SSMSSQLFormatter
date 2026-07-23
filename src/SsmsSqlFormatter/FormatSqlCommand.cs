@@ -44,18 +44,24 @@ namespace SsmsSqlFormatter
             new System.Collections.Generic.List<string>();
 
         /// <summary>
-        /// Acquires the results-grid text: tries the automatic copy, falls back to
-        /// whatever the user copied themselves, restores the user's copy when the
-        /// automatic copy grabbed the query editor's text instead, and refuses with
-        /// guidance when only query text or nothing is available.
+        /// Captures the results grid via the grid's own copy command, using the
+        /// clipboard purely as an invisible transport channel. Freshness is
+        /// enforced: the clipboard is cleared (best effort) before the copy, and
+        /// content is only accepted when it changed or clearly looks like grid
+        /// data - so stale clipboard content (URLs, text from other apps) can
+        /// never be exported by mistake.
         /// </summary>
         private bool TryAcquireResults(Options.GeneralOptions general, out string text)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
+            text = null;
+
             string before = ReadClipboardText();
 
             if (general.ExcelSimulateCopyFirst)
             {
+                try { System.Windows.Forms.Clipboard.Clear(); } catch { /* best effort */ }
+
                 bool copied = false;
                 try
                 {
@@ -73,35 +79,37 @@ namespace SsmsSqlFormatter
                         System.Windows.Forms.SendKeys.SendWait("^+c");
                         System.Threading.Thread.Sleep(350);
                     }
-                    catch { /* fall through to whatever is on the clipboard */ }
+                    catch { /* fall through */ }
                 }
             }
 
-            text = ReadClipboardText();
-            if (string.IsNullOrEmpty(text)) text = before;
+            string after = ReadClipboardText();
 
-            // The automatic copy can route to the query editor and overwrite a
-            // perfectly good grid copy with the query text. Restore the user's copy.
-            if (LooksLikeActiveQueryText(text) &&
-                !string.IsNullOrWhiteSpace(before) &&
-                !LooksLikeActiveQueryText(before))
+            if (!string.IsNullOrWhiteSpace(after) && after != before)
             {
-                text = before;
+                // Fresh content produced by the copy we just triggered.
+                text = after;
             }
-
-            if (string.IsNullOrWhiteSpace(text))
+            else if (!string.IsNullOrWhiteSpace(after) && LooksLikeGridData(after))
+            {
+                // Unchanged, but unmistakably tabular - a repeat export of the
+                // same selection.
+                text = after;
+            }
+            else
             {
                 ShowInfo(
-                    "Nothing to convert - the clipboard is empty.\r\n\r\n" +
-                    "Copy your results first:\r\n" +
-                    "  1. Click in the results grid (Ctrl+A selects everything).\r\n" +
-                    "  2. Right-click > Copy with Headers, or press Ctrl+Shift+C.\r\n" +
-                    "  3. Run this command again.");
+                    "No result data was captured - the results grid was not focused, " +
+                    "so nothing (or unrelated clipboard content) was available. " +
+                    "Nothing was exported.\r\n\r\n" +
+                    "Click anywhere inside the results grid, press Ctrl+A to select " +
+                    "all cells, then run this command again.");
                 return false;
             }
 
             if (LooksLikeActiveQueryText(text))
             {
+                text = null;
                 ShowInfo(
                     "That looks like the query text, not the results - the query " +
                     "editor had focus when the copy ran.\r\n\r\n" +
@@ -112,6 +120,15 @@ namespace SsmsSqlFormatter
 
             return true;
         }
+
+        /// <summary>Tab-separated or multi-line content - the shape of a grid copy.</summary>
+        private static bool LooksLikeGridData(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return false;
+            if (s.IndexOf('\t') >= 0) return true;
+            return s.TrimEnd('\n', '\r').IndexOf('\n') >= 0;
+        }
+
 
         /// <summary>
         /// Queues the current result set as a worksheet. Copy each result set in
@@ -145,9 +162,9 @@ namespace SsmsSqlFormatter
         }
 
         /// <summary>
-        /// Copies the SSMS results grid as an Excel table, or opens it as a
-        /// workbook, per the user's configured action. When sheets are queued via
-        /// Add Results as Sheet, everything opens together as one workbook.
+        /// Exports the results grid to a styled .xlsx workbook and opens it.
+        /// Includes any sheets queued via Add Results as Sheet. The clipboard is
+        /// used only internally to capture the grid; nothing is left for pasting.
         /// </summary>
         private void ExecuteCopyExcel(object sender, EventArgs e)
         {
@@ -157,52 +174,20 @@ namespace SsmsSqlFormatter
                 var general = _package.GetGeneralOptions();
                 if (!TryAcquireResults(general, out string text)) return;
 
-                var style = BuildStyle(general);
+                var sheets = new System.Collections.Generic.List<string>(PendingSheets);
+                if (sheets.Count == 0 || sheets[sheets.Count - 1] != text) sheets.Add(text);
+                PendingSheets.Clear();
+
+                OpenWorkbook(sheets, BuildStyle(general));
                 var dte = (DTE2)Package.GetGlobalService(typeof(DTE));
-
-                // Queued multi-sheet export takes precedence: it can only be a workbook.
-                if (PendingSheets.Count > 0)
-                {
-                    var sheets = new System.Collections.Generic.List<string>(PendingSheets);
-                    if (sheets[sheets.Count - 1] != text) sheets.Add(text);
-                    PendingSheets.Clear();
-                    OpenWorkbook(sheets, style);
-                    SetStatus(dte, $"Workbook opened with {sheets.Count} sheet(s).");
-                    return;
-                }
-
-                if (general.ExcelAction == Options.ExcelResultAction.OpenInExcel)
-                {
-                    OpenWorkbook(new[] { text }, style);
-                    SetStatus(dte, "Results opened in Excel.");
-                    return;
-                }
-
-                string cfHtml = Formatting.ExcelClipboard.BuildCfHtml(
-                    text, style, out int rows, out int cols);
-
-                if (!TrySetClipboard(cfHtml, text, out string clipError))
-                {
-                    var fallback = MessageBox.Show(
-                        "Could not write the Excel table to the clipboard.\r\n\r\n" +
-                        (clipError ?? "Unknown clipboard error.") + "\r\n\r\n" +
-                        "Open the results in Excel directly instead? " +
-                        "(This writes a temporary workbook and launches it, bypassing the clipboard.)",
-                        "Format T-SQL Script",
-                        MessageBoxButton.YesNo, MessageBoxImage.Warning);
-
-                    if (fallback == MessageBoxResult.Yes)
-                        OpenWorkbook(new[] { text }, style);
-                    return;
-                }
-
-                SetStatus(dte, $"Copied as Excel table: {rows} row(s) x {cols} column(s). Paste into Excel with Ctrl+V.");
+                SetStatus(dte, $"Workbook opened with {sheets.Count} sheet(s).");
             }
             catch (Exception ex)
             {
-                ShowError("Copy as Excel table failed: " + ex.Message);
+                ShowError("Export to Excel failed: " + ex.Message);
             }
         }
+
 
 
         /// <summary>Reads clipboard text, retrying briefly - the clipboard is often locked momentarily by other apps.</summary>
@@ -224,38 +209,6 @@ namespace SsmsSqlFormatter
             return null;
         }
 
-        /// <summary>
-        /// Writes both the Excel (CF_HTML) and plain-text flavours to the clipboard.
-        /// Uses the WinForms clipboard, whose SetDataObject overload retries
-        /// internally - the WPF equivalent has no retry and fails whenever another
-        /// application (clipboard manager, remote desktop, antivirus) momentarily
-        /// holds the clipboard. Verifies the result rather than trusting exceptions.
-        /// </summary>
-        private static bool TrySetClipboard(string cfHtml, string plainText, out string error)
-        {
-            // Win32 first. The managed/OLE path can itself leave the clipboard
-            // locked, which then makes the Win32 attempt fail, so try the more
-            // predictable route before OLE gets involved.
-            if (Formatting.ClipboardHelper.SetHtmlAndText(cfHtml, plainText, out error))
-                return true;
-
-            System.Threading.Thread.Sleep(150);
-
-            try
-            {
-                var data = new System.Windows.Forms.DataObject();
-                data.SetData(System.Windows.Forms.DataFormats.Html, cfHtml);
-                data.SetData(System.Windows.Forms.DataFormats.UnicodeText, plainText);
-                data.SetData(System.Windows.Forms.DataFormats.Text, plainText);
-                System.Windows.Forms.Clipboard.SetDataObject(data, true, 6, 120);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                error = (error ?? "") + "  Managed clipboard also failed: " + ex.Message;
-                return false;
-            }
-        }
 
         /// <summary>
         /// Writes the copied results straight to a workbook and opens it. Includes
@@ -368,23 +321,6 @@ namespace SsmsSqlFormatter
             }
         }
 
-
-        private static bool ClipboardHasHtml()
-        {
-            for (int attempt = 0; attempt < 3; attempt++)
-            {
-                try
-                {
-                    return System.Windows.Forms.Clipboard.ContainsData(
-                        System.Windows.Forms.DataFormats.Html);
-                }
-                catch
-                {
-                    System.Threading.Thread.Sleep(80);
-                }
-            }
-            return false;
-        }
 
         private void ExecuteHelp(object sender, EventArgs e)
         {

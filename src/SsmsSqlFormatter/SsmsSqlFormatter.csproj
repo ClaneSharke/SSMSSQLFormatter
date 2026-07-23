@@ -67,7 +67,6 @@
   <ItemGroup>
     <Compile Include="FormatSqlCommand.cs" />
     <Compile Include="Formatting\AiFormatter.cs" />
-    <Compile Include="Formatting\ClipboardHelper.cs" />
     <Compile Include="Formatting\ExcelClipboard.cs" />
     <Compile Include="Formatting\XlsxWriter.cs" />
     <Compile Include="Formatting\ScriptDomFormatter.cs" />

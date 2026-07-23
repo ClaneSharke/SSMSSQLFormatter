@@ -21,9 +21,9 @@ namespace SsmsSqlFormatter.Options
         public string ContextMenu => "Add via Tools > Customize if missing - shortcut always works";
 
         [Category("1. How to format")]
-        [DisplayName("Copy results to Excel")]
-        [Description("Click in the results grid, select cells (Ctrl+A for all), then press Ctrl+Shift+Alt+X (or Tools > Copy Results as Excel Table). Paste into Excel with Ctrl+V: you get a real table with bold headers, and by default every cell pastes as Text so leading zeros and long IDs survive. Configure under Tools > Options > Format T-SQL Script > General > 'Copy results for Excel'.")]
-        public string CopyResultsExcel => "Ctrl+Shift+Alt+X in the results grid, then paste into Excel";
+        [DisplayName("Export results to Excel")]
+        [Description("Click in the results grid, press Ctrl+A, then Ctrl+Shift+Alt+X - a styled .xlsx workbook opens with the results. For queries with several result sets, press Ctrl+Shift+Alt+A on each grid to queue it as a sheet, then Ctrl+Shift+Alt+X opens one workbook with every set on its own sheet. Styling and behaviour: Tools > Options > Format T-SQL Script > General, sections 7 and 8.")]
+        public string CopyResultsExcel => "Ctrl+Shift+Alt+X opens results as an Excel workbook";
 
         [Category("1. How to format")]
         [DisplayName("Results grid context menu")]
@@ -62,6 +62,6 @@ namespace SsmsSqlFormatter.Options
 
         [Category("4. Support")]
         [DisplayName("Version")]
-        public string Version => "1.9.0";
+        public string Version => "2.0.0";
     }
 }
