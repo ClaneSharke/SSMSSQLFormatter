@@ -20,6 +20,7 @@ namespace SsmsSqlFormatter
         public const int CommandId = 0x0100;
         public const int ContextCommandId = 0x0101;
         public const int HelpCommandId = 0x0102;
+        public const int CopyExcelCommandId = 0x0103;
 
         private readonly SsmsSqlFormatterPackage _package;
 
@@ -29,6 +30,61 @@ namespace SsmsSqlFormatter
             commandService.AddCommand(new MenuCommand(Execute, new CommandID(CommandSet, CommandId)));
             commandService.AddCommand(new MenuCommand(Execute, new CommandID(CommandSet, ContextCommandId)));
             commandService.AddCommand(new MenuCommand(ExecuteHelp, new CommandID(CommandSet, HelpCommandId)));
+            commandService.AddCommand(new MenuCommand(ExecuteCopyExcel, new CommandID(CommandSet, CopyExcelCommandId)));
+        }
+
+        /// <summary>
+        /// Copies the SSMS results grid to the clipboard in Excel table format
+        /// (CF_HTML), with headers, so a plain Ctrl+V in Excel pastes a real table.
+        /// Works by transforming the grid's own Copy-with-Headers output rather
+        /// than reaching into SSMS internals.
+        /// </summary>
+        private void ExecuteCopyExcel(object sender, EventArgs e)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            try
+            {
+                var general = _package.GetGeneralOptions();
+
+                if (general.ExcelSimulateCopyFirst)
+                {
+                    // Ask the focused control (the results grid) to Copy with Headers.
+                    System.Windows.Forms.SendKeys.SendWait("^+c");
+                    System.Threading.Thread.Sleep(300);
+                }
+
+                string text = null;
+                try { text = System.Windows.Clipboard.GetText(); } catch { /* clipboard busy */ }
+
+                if (string.IsNullOrWhiteSpace(text) || text.IndexOf('\t') < 0)
+                {
+                    ShowInfo(
+                        "No tabular data found on the clipboard.\r\n\r\n" +
+                        "Click in the results grid, select cells (Ctrl+A for everything), " +
+                        "then run this command again.\r\n\r\n" +
+                        "If your results still aren't picked up, copy manually with " +
+                        "Ctrl+Shift+C (Copy with Headers) and run the command with " +
+                        "'Simulate Copy with Headers first' turned off in " +
+                        "Tools > Options > Format T-SQL Script.");
+                    return;
+                }
+
+                string cfHtml = Formatting.ExcelClipboard.BuildCfHtml(
+                    text, general.ExcelForceTextCells, general.ExcelNullsAsEmpty,
+                    out int rows, out int cols);
+
+                var data = new System.Windows.DataObject();
+                data.SetData(System.Windows.DataFormats.Html, cfHtml);
+                data.SetData(System.Windows.DataFormats.UnicodeText, text);
+                System.Windows.Clipboard.SetDataObject(data, true);
+
+                var dte = (DTE2)Package.GetGlobalService(typeof(DTE));
+                SetStatus(dte, $"Results copied as Excel table: {rows} row(s) x {cols} column(s) (incl. headers). Paste into Excel with Ctrl+V.");
+            }
+            catch (Exception ex)
+            {
+                ShowError("Copy as Excel table failed: " + ex.Message);
+            }
         }
 
         private void ExecuteHelp(object sender, EventArgs e)

@@ -21,6 +21,11 @@ namespace SsmsSqlFormatter.Options
         public string ContextMenu => "Add via Tools > Customize if missing - shortcut always works";
 
         [Category("1. How to format")]
+        [DisplayName("Copy results to Excel")]
+        [Description("Click in the results grid, select cells (Ctrl+A for all), then press Ctrl+Shift+Alt+X (or Tools > Copy Results as Excel Table). Paste into Excel with Ctrl+V: you get a real table with bold headers, and by default every cell pastes as Text so leading zeros and long IDs survive. Configure under Tools > Options > Format T-SQL Script > General > 'Copy results for Excel'.")]
+        public string CopyResultsExcel => "Ctrl+Shift+Alt+X in the results grid, then paste into Excel";
+
+        [Category("1. How to format")]
         [DisplayName("Parse errors")]
         [Description("If the script contains a syntax error the formatter refuses to change anything and reports the line and column of the first error. Fix the error and format again.")]
         public string ParseErrors => "Scripts with syntax errors are never modified";
@@ -52,6 +57,6 @@ namespace SsmsSqlFormatter.Options
 
         [Category("4. Support")]
         [DisplayName("Version")]
-        public string Version => "1.5.1";
+        public string Version => "1.6.0";
     }
 }

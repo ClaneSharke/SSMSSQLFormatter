@@ -39,12 +39,21 @@
           <ToolTipText>Usage, options overview, and link to documentation</ToolTipText>
         </Strings>
       </Button>
+      <Button guid="guidSsmsSqlFormatterCmdSet" id="cmdidCopyResultsExcel" priority="0x0105" type="Button">
+        <Parent guid="guidSsmsSqlFormatterCmdSet" id="ToolsMenuGroup" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Copy Results as Excel Table</ButtonText>
+          <ToolTipText>Copy the results grid to the clipboard as an Excel table with headers (Ctrl+Shift+Alt+X)</ToolTipText>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
   <KeyBindings>
     <!-- Ctrl+Shift+Alt+F -->
     <KeyBinding guid="guidSsmsSqlFormatterCmdSet" id="cmdidFormatSql" editor="guidVSStd97" key1="F" mod1="Control Shift Alt" />
+    <KeyBinding guid="guidSsmsSqlFormatterCmdSet" id="cmdidCopyResultsExcel" editor="guidVSStd97" key1="X" mod1="Control Shift Alt" />
   </KeyBindings>
 
   <Symbols>
@@ -55,6 +64,7 @@
       <IDSymbol name="cmdidFormatSql" value="0x0100" />
       <IDSymbol name="cmdidFormatSqlContext" value="0x0101" />
       <IDSymbol name="cmdidFormatterHelp" value="0x0102" />
+      <IDSymbol name="cmdidCopyResultsExcel" value="0x0103" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>

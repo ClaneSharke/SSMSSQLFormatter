@@ -189,6 +189,22 @@ namespace SsmsSqlFormatter.Options
         [Description("Remove spaces and tabs at the ends of lines.")]
         public bool TrimTrailingWhitespace { get; set; } = true;
 
+        // ---------- Copy results for Excel ----------
+        [Category("7. Copy results for Excel")]
+        [DisplayName("Simulate Copy with Headers first")]
+        [Description("When you run 'Copy Results as Excel Table' (Ctrl+Shift+Alt+X), first send the grid's own Copy-with-Headers keystroke so you don't have to copy manually. Requires focus to be in the results grid. Disable this to transform whatever you copied yourself.")]
+        public bool ExcelSimulateCopyFirst { get; set; } = true;
+
+        [Category("7. Copy results for Excel")]
+        [DisplayName("Paste all cells as text")]
+        [Description("Marks every data cell as Text so Excel keeps leading zeros and doesn't turn long numbers into scientific notation or ID-like values into dates. Disable to let Excel auto-detect types (numbers become summable).")]
+        public bool ExcelForceTextCells { get; set; } = true;
+
+        [Category("7. Copy results for Excel")]
+        [DisplayName("Paste NULL as empty cells")]
+        [Description("Convert the grid's literal 'NULL' text into empty cells when pasting into Excel.")]
+        public bool ExcelNullsAsEmpty { get; set; } = false;
+
         // ---------- Safety ----------
         [Category("6. Safety")]
         [DisplayName("Preserve comments")]
