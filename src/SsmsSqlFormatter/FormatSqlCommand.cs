@@ -117,11 +117,16 @@ namespace SsmsSqlFormatter
 
                 if (!TrySetClipboard(cfHtml, text, out string clipError))
                 {
-                    ShowError(
+                    var fallback = MessageBox.Show(
                         "Could not write the Excel table to the clipboard.\r\n\r\n" +
                         (clipError ?? "Unknown clipboard error.") + "\r\n\r\n" +
-                        "Try closing or pausing any clipboard manager, then run the " +
-                        "command again. Your plain-text copy is unaffected.");
+                        "Open the results in Excel directly instead? " +
+                        "(This writes a temporary file and launches it, bypassing the clipboard.)",
+                        "Format T-SQL Script",
+                        MessageBoxButton.YesNo, MessageBoxImage.Warning);
+
+                    if (fallback == MessageBoxResult.Yes)
+                        OpenInExcel(text, style);
                     return;
                 }
 
@@ -172,7 +177,10 @@ namespace SsmsSqlFormatter
                 data.SetData(System.Windows.Forms.DataFormats.UnicodeText, plainText);
                 data.SetData(System.Windows.Forms.DataFormats.Text, plainText);
                 System.Windows.Forms.Clipboard.SetDataObject(data, true, 6, 120);
-                if (ClipboardHasHtml()) return true;
+                // No exception means the data went on. Verification via ContainsData
+                // is itself unreliable on locked-down machines, so don't let a failed
+                // check discard a write that actually succeeded.
+                return true;
             }
             catch (Exception ex)
             {
@@ -185,6 +193,34 @@ namespace SsmsSqlFormatter
 
             error = win32Error ?? error;
             return false;
+        }
+
+        /// <summary>
+        /// Writes the results to a temporary .xls (HTML workbook) file and launches
+        /// it. Excel opens HTML tables natively with formatting intact, so this is a
+        /// dependable route on machines where the clipboard is locked down.
+        /// </summary>
+        private static void OpenInExcel(string tsv, Formatting.ExcelStyle style)
+        {
+            try
+            {
+                string html = Formatting.ExcelClipboard.BuildHtmlDocument(
+                    tsv, style, out int rows, out int cols);
+
+                string path = System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(),
+                    "SsmsResults_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".xls");
+
+                System.IO.File.WriteAllText(path, html, new System.Text.UTF8Encoding(true));
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path)
+                {
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                ShowError("Could not open the results in Excel: " + ex.Message);
+            }
         }
 
         private static bool ClipboardHasHtml()

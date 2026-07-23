@@ -36,6 +36,24 @@ namespace SsmsSqlFormatter.Formatting
         public static string BuildCfHtml(string tsv, ExcelStyle style,
                                          out int rowCount, out int colCount)
         {
+            return WrapCfHtml(BuildTableHtml(tsv, style, out rowCount, out colCount));
+        }
+
+        /// <summary>Builds a standalone HTML document Excel can open directly as a workbook.</summary>
+        public static string BuildHtmlDocument(string tsv, ExcelStyle style,
+                                               out int rowCount, out int colCount)
+        {
+            string table = BuildTableHtml(tsv, style, out rowCount, out colCount);
+            return "<html><head><meta charset=\"utf-8\">" +
+                   "<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>" +
+                   "<x:Name>Results</x:Name><x:WorksheetOptions><x:DisplayGridlines/>" +
+                   "</x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->" +
+                   "</head><body>" + table + "</body></html>";
+        }
+
+        private static string BuildTableHtml(string tsv, ExcelStyle style,
+                                             out int rowCount, out int colCount)
+        {
             if (style == null) style = new ExcelStyle();
 
             string font = SanitizeFont(style.FontName);
@@ -98,7 +116,7 @@ namespace SsmsSqlFormatter.Formatting
             }
             sb.Append("</table>");
 
-            return WrapCfHtml(sb.ToString());
+            return sb.ToString();
         }
 
         /// <summary>Accepts "#RRGGBB", "RRGGBB", or a plain CSS colour name; falls back when invalid.</summary>
