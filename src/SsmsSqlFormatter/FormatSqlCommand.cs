@@ -100,6 +100,14 @@ namespace SsmsSqlFormatter
 
                 var style = BuildStyle(general);
 
+                if (general.ExcelAction == Options.ExcelResultAction.OpenInExcel)
+                {
+                    OpenInExcel(text, style);
+                    var dteOpen = (DTE2)Package.GetGlobalService(typeof(DTE));
+                    SetStatus(dteOpen, "Results opened in Excel.");
+                    return;
+                }
+
                 string cfHtml = Formatting.ExcelClipboard.BuildCfHtml(
                     text, style, out int rows, out int cols);
 
