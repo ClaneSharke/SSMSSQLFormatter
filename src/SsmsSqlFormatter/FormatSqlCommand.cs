@@ -231,22 +231,20 @@ namespace SsmsSqlFormatter
         }
 
         /// <summary>
-        /// Writes the results to a temporary .xls (HTML workbook) file and launches
-        /// it. Excel opens HTML tables natively with formatting intact, so this is a
-        /// dependable route on machines where the clipboard is locked down.
+        /// Writes the results to a temporary genuine .xlsx workbook and launches it.
+        /// Dependable where clipboard access is restricted (elevated SSMS, remote
+        /// desktop sessions, locked-down security policies).
         /// </summary>
         private static void OpenInExcel(string tsv, Formatting.ExcelStyle style)
         {
             try
             {
-                string html = Formatting.ExcelClipboard.BuildHtmlDocument(
-                    tsv, style, out int rows, out int cols);
-
                 string path = System.IO.Path.Combine(
                     System.IO.Path.GetTempPath(),
-                    "SsmsResults_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".xls");
+                    "SsmsResults_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".xlsx");
 
-                System.IO.File.WriteAllText(path, html, new System.Text.UTF8Encoding(true));
+                Formatting.XlsxWriter.Write(path, tsv, style);
+
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path)
                 {
                     UseShellExecute = true
