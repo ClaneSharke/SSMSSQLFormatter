@@ -68,6 +68,7 @@ namespace SsmsSqlFormatter
                 // query editor regardless of focus and copies the query text.)
                 try
                 {
+                    ReleaseModifierKeys();
                     System.Windows.Forms.SendKeys.SendWait("^+c");
                     System.Threading.Thread.Sleep(400);
                 }
@@ -83,6 +84,7 @@ namespace SsmsSqlFormatter
             {
                 try
                 {
+                    ReleaseModifierKeys();
                     System.Windows.Forms.SendKeys.SendWait("^c");
                     System.Threading.Thread.Sleep(400);
                     after = ReadClipboardText();
@@ -199,6 +201,26 @@ namespace SsmsSqlFormatter
 
 
         /// <summary>Reads clipboard text, retrying briefly - the clipboard is often locked momentarily by other apps.</summary>
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+        private const uint KEYEVENTF_KEYUP = 0x0002;
+
+        /// <summary>
+        /// Releases Ctrl, Shift and Alt at the OS level. When our command is
+        /// invoked by its keyboard shortcut, the user is still physically holding
+        /// those modifiers - a synthesised Ctrl+Shift+C then combines with them
+        /// into Ctrl+Shift+Alt+C, which the grid ignores. Releasing first makes
+        /// the synthesised copy arrive clean.
+        /// </summary>
+        private static void ReleaseModifierKeys()
+        {
+            byte[] keys = { 0x10, 0x11, 0x12, 0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5 }; // Shift, Ctrl, Alt + L/R variants
+            foreach (var k in keys)
+                keybd_event(k, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+            System.Threading.Thread.Sleep(60);
+        }
+
         private static string ReadClipboardText()
         {
             for (int attempt = 0; attempt < 5; attempt++)
