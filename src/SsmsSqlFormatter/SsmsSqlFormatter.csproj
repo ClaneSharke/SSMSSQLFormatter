@@ -72,6 +72,7 @@
     <Compile Include="Formatting\XlsxWriter.cs" />
     <Compile Include="Formatting\ScriptDomFormatter.cs" />
     <Compile Include="Options\AiOptions.cs" />
+    <Compile Include="Options\FontConverters.cs" />
     <Compile Include="Options\GeneralOptions.cs" />
     <Compile Include="Options\HelpOptions.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

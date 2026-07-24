@@ -16,6 +16,11 @@
   immediately followed by "(", so a column that shares a function name is left
   alone; strings, comments, quoted identifiers and variables are never touched.
 
+**Options**
+- The **font name** and **font size** settings are now dropdowns. The font list
+  shows standard Windows fonts that are actually installed on the machine, so it
+  can't offer something that won't render; another font can still be typed in.
+
 **Settings**
 - **Tools → Export / Import Formatter Settings** writes every option to a JSON
   file and applies it back, for sharing a house style across a team or

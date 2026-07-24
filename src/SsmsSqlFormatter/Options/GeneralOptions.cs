@@ -260,11 +260,14 @@ namespace SsmsSqlFormatter.Options
         // ---------- Excel appearance ----------
         [Category("8. Excel appearance")]
         [DisplayName("Font name")]
-        [Description("Font applied to the pasted table, e.g. Calibri, Arial, Consolas.")]
+        [Description("Font applied to the exported workbook. The dropdown lists standard Windows fonts installed on this machine; another font name can be typed if you have one.")]
+        [TypeConverter(typeof(FontNameConverter))]
         public string ExcelFontName { get; set; } = "Calibri";
 
         [Category("8. Excel appearance")]
         [DisplayName("Font size (pt)")]
+        [Description("Point size for the exported workbook. Choose from the list or type any size between 6 and 72.")]
+        [TypeConverter(typeof(FontSizeConverter))]
         public int ExcelFontSize { get; set; } = 11;
 
         [Category("8. Excel appearance")]
