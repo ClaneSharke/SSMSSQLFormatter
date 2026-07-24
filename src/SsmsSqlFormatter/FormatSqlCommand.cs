@@ -51,10 +51,9 @@ namespace SsmsSqlFormatter
         /// data - so stale clipboard content (URLs, text from other apps) can
         /// never be exported by mistake.
         /// </summary>
-        private bool TryAcquireResults(Options.GeneralOptions general, out string text)
+        private async System.Threading.Tasks.Task<string> AcquireResultsAsync(Options.GeneralOptions general)
         {
-            ThreadHelper.ThrowIfNotOnUIThread();
-            text = null;
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
             string before = ReadClipboardText();
 
@@ -62,15 +61,17 @@ namespace SsmsSqlFormatter
             {
                 try { System.Windows.Forms.Clipboard.Clear(); } catch { /* best effort */ }
 
-                // Send the grid's Copy-with-Headers keystroke to whatever control
-                // actually has focus. (The automation command Edit.CopyWithHeaders
-                // is deliberately NOT used: on some SSMS builds it routes to the
-                // query editor regardless of focus and copies the query text.)
+                // CRITICAL: the synthesised keystroke is delivered through the
+                // Windows message queue, which only SSMS's UI thread can drain.
+                // Every wait here must be an AWAIT (which yields and lets the
+                // message pump run) and never Thread.Sleep, which would block the
+                // pump so the grid never processes the keystroke at all.
                 try
                 {
                     ReleaseModifierKeys();
-                    System.Windows.Forms.SendKeys.SendWait("^+c");
-                    System.Threading.Thread.Sleep(400);
+                    await System.Threading.Tasks.Task.Delay(60);
+                    SendCopyKeystroke(withShift: true);
+                    await System.Threading.Tasks.Task.Delay(450);
                 }
                 catch { /* fall through */ }
             }
@@ -85,12 +86,15 @@ namespace SsmsSqlFormatter
                 try
                 {
                     ReleaseModifierKeys();
-                    System.Windows.Forms.SendKeys.SendWait("^c");
-                    System.Threading.Thread.Sleep(400);
+                    await System.Threading.Tasks.Task.Delay(60);
+                    SendCopyKeystroke(withShift: false);
+                    await System.Threading.Tasks.Task.Delay(450);
                     after = ReadClipboardText();
                 }
                 catch { /* keep what we have */ }
             }
+
+            string text;
 
             if (!string.IsNullOrWhiteSpace(after) && after != before)
             {
@@ -119,16 +123,15 @@ namespace SsmsSqlFormatter
 
             if (LooksLikeActiveQueryText(text))
             {
-                text = null;
                 ShowInfo(
                     "That looks like the query text, not the results - the query " +
                     "editor had focus when the copy ran.\r\n\r\n" +
                     "Click anywhere inside the results grid first (Ctrl+A selects all " +
                     "cells), then run this command again.");
-                return false;
+                return null;
             }
 
-            return true;
+            return text;
         }
 
         /// <summary>Tab-separated or multi-line content - the shape of a grid copy.</summary>
@@ -147,33 +150,33 @@ namespace SsmsSqlFormatter
         /// to the results grid afterwards - capturing immediately would send the
         /// copy keystroke into the toolbar. Deferring lets focus settle first.
         /// </summary>
-        private void RunDeferred(Action action)
+        private void RunDeferred(Func<System.Threading.Tasks.Task> action)
         {
             _package.JoinableTaskFactory.RunAsync(async () =>
             {
                 await System.Threading.Tasks.Task.Delay(300);
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-                try { action(); }
+                try { await action(); }
                 catch (Exception ex) { ShowError("Export failed: " + ex.Message); }
             });
         }
 
-        private void ExecuteCopyExcel(object sender, EventArgs e) => RunDeferred(ExecuteCopyExcelCore);
-        private void ExecuteOpenExcel(object sender, EventArgs e) => RunDeferred(ExecuteOpenExcelCore);
-        private void ExecuteAddSheet(object sender, EventArgs e) => RunDeferred(ExecuteAddSheetCore);
+        private void ExecuteCopyExcel(object sender, EventArgs e) => RunDeferred(ExecuteCopyExcelCoreAsync);
+        private void ExecuteOpenExcel(object sender, EventArgs e) => RunDeferred(ExecuteOpenExcelCoreAsync);
+        private void ExecuteAddSheet(object sender, EventArgs e) => RunDeferred(ExecuteAddSheetCoreAsync);
 
         /// <summary>
         /// Queues the current result set as a worksheet. Copy each result set in
         /// turn and run this for each; then Copy Results as Excel Table opens one
         /// workbook containing every queued set on its own sheet.
         /// </summary>
-        private void ExecuteAddSheetCore()
+        private async System.Threading.Tasks.Task ExecuteAddSheetCoreAsync()
         {
-            ThreadHelper.ThrowIfNotOnUIThread();
             try
             {
                 var general = _package.GetGeneralOptions();
-                if (!TryAcquireResults(general, out string text)) return;
+                string text = await AcquireResultsAsync(general);
+                if (text == null) return;
 
                 if (PendingSheets.Count > 0 && PendingSheets[PendingSheets.Count - 1] == text)
                 {
@@ -198,13 +201,13 @@ namespace SsmsSqlFormatter
         /// Includes any sheets queued via Add Results as Sheet. The clipboard is
         /// used only internally to capture the grid; nothing is left for pasting.
         /// </summary>
-        private void ExecuteCopyExcelCore()
+        private async System.Threading.Tasks.Task ExecuteCopyExcelCoreAsync()
         {
-            ThreadHelper.ThrowIfNotOnUIThread();
             try
             {
                 var general = _package.GetGeneralOptions();
-                if (!TryAcquireResults(general, out string text)) return;
+                string text = await AcquireResultsAsync(general);
+                if (text == null) return;
 
                 var sheets = new System.Collections.Generic.List<string>(PendingSheets);
                 if (sheets.Count == 0 || sheets[sheets.Count - 1] != text) sheets.Add(text);
@@ -235,12 +238,30 @@ namespace SsmsSqlFormatter
         /// into Ctrl+Shift+Alt+C, which the grid ignores. Releasing first makes
         /// the synthesised copy arrive clean.
         /// </summary>
+        private const byte VK_SHIFT_KEY = 0x10;
+        private const byte VK_CONTROL_KEY = 0x11;
+        private const byte VK_C_KEY = 0x43;
+
+        /// <summary>
+        /// Synthesises Ctrl+C / Ctrl+Shift+C with direct Win32 calls. Used instead
+        /// of SendKeys, whose journal-hook implementation behaves unreliably inside
+        /// the Visual Studio shell.
+        /// </summary>
+        private static void SendCopyKeystroke(bool withShift)
+        {
+            keybd_event(VK_CONTROL_KEY, 0, 0, UIntPtr.Zero);
+            if (withShift) keybd_event(VK_SHIFT_KEY, 0, 0, UIntPtr.Zero);
+            keybd_event(VK_C_KEY, 0, 0, UIntPtr.Zero);
+            keybd_event(VK_C_KEY, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+            if (withShift) keybd_event(VK_SHIFT_KEY, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+            keybd_event(VK_CONTROL_KEY, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+        }
+
         private static void ReleaseModifierKeys()
         {
             byte[] keys = { 0x10, 0x11, 0x12, 0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5 }; // Shift, Ctrl, Alt + L/R variants
             foreach (var k in keys)
                 keybd_event(k, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-            System.Threading.Thread.Sleep(60);
         }
 
         private static string ReadClipboardText()
@@ -266,13 +287,13 @@ namespace SsmsSqlFormatter
         /// Writes the copied results straight to a workbook and opens it. Includes
         /// any sheets queued via Add Results as Sheet.
         /// </summary>
-        private void ExecuteOpenExcelCore()
+        private async System.Threading.Tasks.Task ExecuteOpenExcelCoreAsync()
         {
-            ThreadHelper.ThrowIfNotOnUIThread();
             try
             {
                 var general = _package.GetGeneralOptions();
-                if (!TryAcquireResults(general, out string text)) return;
+                string text = await AcquireResultsAsync(general);
+                if (text == null) return;
 
                 var sheets = new System.Collections.Generic.List<string>(PendingSheets);
                 if (sheets.Count == 0 || sheets[sheets.Count - 1] != text) sheets.Add(text);

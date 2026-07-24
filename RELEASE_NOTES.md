@@ -1,26 +1,29 @@
-**Fixed: "No result data was captured" — both invocation paths**
+**Fixed (root cause): "No result data was captured"**
 
-Two root causes, both fixed:
+The capture failed because the extension blocked SSMS's UI thread while
+waiting for the copy to happen. The synthesised copy keystroke is delivered
+through the Windows message queue, and only the UI thread can drain that
+queue — so sleeping on that thread meant the results grid never processed
+the keystroke at all. The clipboard was then read before any copy had
+occurred, and the export refused.
 
-- **Keyboard shortcut (v2.0.2):** when Ctrl+Shift+Alt+X is pressed, the user
-  is still physically holding Ctrl, Shift and Alt at the moment the extension
-  synthesises the grid's copy keystroke — so the grid received
-  Ctrl+Shift+Alt+C instead of Ctrl+Shift+C and copied nothing. The held
-  modifier keys are now released at the OS level before the copy is sent.
-- **Toolbar/menu click (v2.0.3):** clicking a button runs the command while
-  focus still belongs to the toolbar, so the capture keystroke never reached
-  the grid. The capture now runs a moment after the click completes, once
-  focus has returned to the grid.
+The same bug explains the occasional export of unrelated content: the copy
+completed only after the command had already finished, leaving the previous
+clipboard contents in play during the run.
 
-Workflow for both paths: click in the results grid, Ctrl+A, then either
+The capture now yields instead of blocking, so the message pump keeps
+running and the grid actually receives the keystroke. The keystroke itself
+is synthesised with direct Win32 calls rather than SendKeys, which behaves
+unreliably inside the Visual Studio shell.
+
+Both invocation paths work: click in the results grid, Ctrl+A, then either
 press Ctrl+Shift+Alt+X or click Export Results to Excel — a styled .xlsx
 workbook opens. Multiple result sets: Ctrl+Shift+Alt+A on each grid queues
-it as a sheet; Ctrl+Shift+Alt+X then opens one workbook with every set on
+it as a sheet, then Ctrl+Shift+Alt+X opens one workbook with every set on
 its own sheet.
 
-The v2.0 freshness safeguard is unchanged: stale clipboard content (browser
-text, other applications) can never be exported — if no fresh grid data is
-captured, the extension refuses with guidance.
+The freshness safeguard is unchanged: if no fresh grid data is captured,
+the extension refuses with guidance rather than exporting the wrong thing.
 
 **Install / upgrade:** download `SsmsSqlFormatter.vsix` below, close SSMS,
 double-click to install, restart SSMS. Upgrades any earlier version and
