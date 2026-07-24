@@ -1,4 +1,4 @@
-# v2.2.1 — Excel export enhancements, casing control and settings sharing
+# v2.2.2 — Excel export enhancements, casing control and settings sharing
 
 **New in this release**
 
@@ -22,6 +22,10 @@
 - The **font name** and **font size** settings are now dropdowns. The font list
   shows standard Windows fonts that are actually installed on the machine, so it
   can't offer something that won't render; another font can still be typed in.
+
+**Also**
+- The extension's description in the SSMS extension manager now describes the
+  export features as well as the formatter.
 
 **Settings**
 - **Tools → Export / Import Formatter Settings** writes every option to a JSON

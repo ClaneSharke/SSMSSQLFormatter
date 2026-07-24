@@ -72,6 +72,6 @@ namespace SsmsSqlFormatter.Options
 
         [Category("4. Support")]
         [DisplayName("Version")]
-        public string Version => "2.2.1";
+        public string Version => "2.2.2";
     }
 }
