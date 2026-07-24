@@ -141,11 +141,33 @@ namespace SsmsSqlFormatter
 
 
         /// <summary>
+        /// Runs an export action shortly AFTER the invoking click/keystroke has
+        /// fully completed. When a toolbar button or menu item is clicked, focus
+        /// belongs to the toolbar while the command handler runs and only returns
+        /// to the results grid afterwards - capturing immediately would send the
+        /// copy keystroke into the toolbar. Deferring lets focus settle first.
+        /// </summary>
+        private void RunDeferred(Action action)
+        {
+            _package.JoinableTaskFactory.RunAsync(async () =>
+            {
+                await System.Threading.Tasks.Task.Delay(300);
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                try { action(); }
+                catch (Exception ex) { ShowError("Export failed: " + ex.Message); }
+            });
+        }
+
+        private void ExecuteCopyExcel(object sender, EventArgs e) => RunDeferred(ExecuteCopyExcelCore);
+        private void ExecuteOpenExcel(object sender, EventArgs e) => RunDeferred(ExecuteOpenExcelCore);
+        private void ExecuteAddSheet(object sender, EventArgs e) => RunDeferred(ExecuteAddSheetCore);
+
+        /// <summary>
         /// Queues the current result set as a worksheet. Copy each result set in
         /// turn and run this for each; then Copy Results as Excel Table opens one
         /// workbook containing every queued set on its own sheet.
         /// </summary>
-        private void ExecuteAddSheet(object sender, EventArgs e)
+        private void ExecuteAddSheetCore()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             try
@@ -176,7 +198,7 @@ namespace SsmsSqlFormatter
         /// Includes any sheets queued via Add Results as Sheet. The clipboard is
         /// used only internally to capture the grid; nothing is left for pasting.
         /// </summary>
-        private void ExecuteCopyExcel(object sender, EventArgs e)
+        private void ExecuteCopyExcelCore()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             try
@@ -244,7 +266,7 @@ namespace SsmsSqlFormatter
         /// Writes the copied results straight to a workbook and opens it. Includes
         /// any sheets queued via Add Results as Sheet.
         /// </summary>
-        private void ExecuteOpenExcel(object sender, EventArgs e)
+        private void ExecuteOpenExcelCore()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             try
