@@ -118,7 +118,7 @@ namespace SsmsSqlFormatter
                     "  - Using a toolbar button or menu instead? Copy the grid " +
                     "yourself first (Ctrl+A, then Ctrl+Shift+C), then click the " +
                     "button - your copy will be used.");
-                return false;
+                return null;
             }
 
             if (LooksLikeActiveQueryText(text))
