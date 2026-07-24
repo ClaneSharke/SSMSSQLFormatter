@@ -1,29 +1,28 @@
-**Fixed (root cause): "No result data was captured"**
+**New in this release**
 
-The capture failed because the extension blocked SSMS's UI thread while
-waiting for the copy to happen. The synthesised copy keystroke is delivered
-through the Windows message queue, and only the UI thread can drain that
-queue — so sleeping on that thread meant the results grid never processed
-the keystroke at all. The clipboard was then read before any copy had
-occurred, and the export refused.
+**Excel export**
+- **Frozen header row and AutoFilter** on exported workbooks, so headers stay
+  visible and results can be filtered and sorted immediately. Both on by
+  default, both switchable under "Excel appearance".
+- **Output folder** option — exports land in a folder you choose instead of the
+  temp folder, with an optional **Save As prompt** for each export.
+- **Include the query on a separate sheet** — the workbook records the SQL that
+  produced the data.
+- **CSV export** as an alternative format, with proper RFC 4180 quoting.
 
-The same bug explains the occasional export of unrelated content: the copy
-completed only after the command had already finished, leaving the previous
-clipboard contents in play during the run.
+**Formatter**
+- **Built-in function casing** and **data type casing** can now be set
+  independently of keyword casing. Function names are only re-cased when
+  immediately followed by "(", so a column that shares a function name is left
+  alone; strings, comments, quoted identifiers and variables are never touched.
 
-The capture now yields instead of blocking, so the message pump keeps
-running and the grid actually receives the keystroke. The keystroke itself
-is synthesised with direct Win32 calls rather than SendKeys, which behaves
-unreliably inside the Visual Studio shell.
+**Settings**
+- **Tools → Export / Import Formatter Settings** writes every option to a JSON
+  file and applies it back, for sharing a house style across a team or
+  restoring a setup after a reinstall. Unrecognised values are skipped rather
+  than overwriting existing settings.
 
-Both invocation paths work: click in the results grid, Ctrl+A, then either
-press Ctrl+Shift+Alt+X or click Export Results to Excel — a styled .xlsx
-workbook opens. Multiple result sets: Ctrl+Shift+Alt+A on each grid queues
-it as a sheet, then Ctrl+Shift+Alt+X opens one workbook with every set on
-its own sheet.
-
-The freshness safeguard is unchanged: if no fresh grid data is captured,
-the extension refuses with guidance rather than exporting the wrong thing.
+Capture and formatting behaviour are otherwise unchanged from v2.1.1.
 
 **Install / upgrade:** download `SsmsSqlFormatter.vsix` below, close SSMS,
 double-click to install, restart SSMS. Upgrades any earlier version and

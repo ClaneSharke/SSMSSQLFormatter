@@ -12,6 +12,15 @@ namespace SsmsSqlFormatter.Formatting
     /// "file format and extension don't match" warning. An .xlsx file is a zip
     /// of small XML parts, all generated here.
     /// </summary>
+    /// <summary>One worksheet in the generated workbook.</summary>
+    internal class XlsxSheet
+    {
+        public string Name;
+        public string Tsv;
+        /// <summary>Plain sheets (e.g. the query text) get no header styling, freeze pane or filter.</summary>
+        public bool Plain;
+    }
+
     internal static class XlsxWriter
     {
         public static void Write(string path, string tsv, ExcelStyle style)
@@ -19,32 +28,46 @@ namespace SsmsSqlFormatter.Formatting
             Write(path, new[] { tsv }, style);
         }
 
-        /// <summary>Writes one worksheet per TSV block - used for multi-result-set workbooks.</summary>
         public static void Write(string path, System.Collections.Generic.IList<string> tsvs, ExcelStyle style)
         {
+            var sheets = new System.Collections.Generic.List<XlsxSheet>();
+            for (int i = 0; i < tsvs.Count; i++)
+                sheets.Add(new XlsxSheet
+                {
+                    Name = tsvs.Count == 1 ? "Results" : "Results " + (i + 1),
+                    Tsv = tsvs[i]
+                });
+            WriteSheets(path, sheets, style);
+        }
+
+        /// <summary>Writes one worksheet per descriptor.</summary>
+        public static void WriteSheets(string path, System.Collections.Generic.IList<XlsxSheet> sheets, ExcelStyle style)
+        {
             if (style == null) style = new ExcelStyle();
-            int count = tsvs.Count;
+            int count = sheets.Count;
 
             using (var fs = new FileStream(path, FileMode.Create, FileAccess.Write))
             using (var zip = new ZipArchive(fs, ZipArchiveMode.Create))
             {
                 AddEntry(zip, "[Content_Types].xml", ContentTypesXml(count));
                 AddEntry(zip, "_rels/.rels", RootRelsXml());
-                AddEntry(zip, "xl/workbook.xml", WorkbookXml(count));
+                AddEntry(zip, "xl/workbook.xml", WorkbookXml(sheets));
                 AddEntry(zip, "xl/_rels/workbook.xml.rels", WorkbookRelsXml(count));
                 AddEntry(zip, "xl/styles.xml", StylesXml(style));
 
                 for (int i = 0; i < count; i++)
                 {
-                    var lines = tsvs[i].Replace("\r\n", "\n").TrimEnd('\n').Split('\n');
+                    var sheet = sheets[i];
+                    var lines = (sheet.Tsv ?? "").Replace("\r\n", "\n").TrimEnd('\n').Split('\n');
                     int colCount = 0;
                     var rows = new string[lines.Length][];
                     for (int r = 0; r < lines.Length; r++)
                     {
-                        rows[r] = lines[r].Split('\t');
+                        rows[r] = sheet.Plain ? new[] { lines[r] } : lines[r].Split('\t');
                         if (rows[r].Length > colCount) colCount = rows[r].Length;
                     }
-                    AddEntry(zip, "xl/worksheets/sheet" + (i + 1) + ".xml", SheetXml(rows, colCount, style));
+                    AddEntry(zip, "xl/worksheets/sheet" + (i + 1) + ".xml",
+                             SheetXml(rows, colCount, style, sheet.Plain));
                 }
             }
         }
@@ -78,20 +101,32 @@ namespace SsmsSqlFormatter.Formatting
             "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>" +
             "</Relationships>";
 
-        private static string WorkbookXml(int sheetCount)
+        private static string WorkbookXml(System.Collections.Generic.IList<XlsxSheet> sheets)
         {
             var sb = new StringBuilder();
             sb.Append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>")
               .Append("<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" ")
               .Append("xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheets>");
-            for (int i = 1; i <= sheetCount; i++)
+            for (int i = 0; i < sheets.Count; i++)
             {
-                string name = sheetCount == 1 ? "Results" : "Results " + i;
-                sb.Append("<sheet name=\"").Append(name).Append("\" sheetId=\"").Append(i)
-                  .Append("\" r:id=\"rId").Append(i).Append("\"/>");
+                sb.Append("<sheet name=\"").Append(SheetName(sheets[i].Name, i))
+                  .Append("\" sheetId=\"").Append(i + 1)
+                  .Append("\" r:id=\"rId").Append(i + 1).Append("\"/>");
             }
             sb.Append("</sheets></workbook>");
             return sb.ToString();
+        }
+
+        /// <summary>Excel sheet names: max 31 chars, no : \\ / ? * [ ]</summary>
+        private static string SheetName(string name, int index)
+        {
+            if (string.IsNullOrWhiteSpace(name)) name = "Sheet" + (index + 1);
+            var sb = new StringBuilder();
+            foreach (char c in name)
+                sb.Append(":\\/?*[]".IndexOf(c) >= 0 ? '_' : c);
+            string cleaned = sb.ToString().Trim();
+            if (cleaned.Length > 31) cleaned = cleaned.Substring(0, 31);
+            return XmlEscape(cleaned);
         }
 
         private static string WorkbookRelsXml(int sheetCount)
@@ -160,11 +195,21 @@ namespace SsmsSqlFormatter.Formatting
             "</styleSheet>";
         }
 
-        private static string SheetXml(string[][] rows, int colCount, ExcelStyle style)
+        private static string SheetXml(string[][] rows, int colCount, ExcelStyle style, bool plain)
         {
+            bool header = !plain && style.FirstRowIsHeader && rows.Length > 0;
             var sb = new StringBuilder(1024 + rows.Length * 64);
             sb.Append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>")
               .Append("<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">");
+
+            // sheetViews must precede cols in the schema sequence.
+            if (header && style.FreezeHeaderRow)
+            {
+                sb.Append("<sheetViews><sheetView workbookViewId=\"0\">")
+                  .Append("<pane ySplit=\"1\" topLeftCell=\"A2\" activePane=\"bottomLeft\" state=\"frozen\"/>")
+                  .Append("<selection pane=\"bottomLeft\" activeCell=\"A2\" sqref=\"A2\"/>")
+                  .Append("</sheetView></sheetViews>");
+            }
 
             // Approximate column widths from content (capped), so results are readable.
             var widths = new int[colCount];
@@ -185,11 +230,11 @@ namespace SsmsSqlFormatter.Formatting
             int dataRow = 0;
             for (int r = 0; r < rows.Length; r++)
             {
-                bool header = style.FirstRowIsHeader && r == 0;
-                bool band = !header && style.BandedRows && (dataRow % 2 == 1);
-                if (!header) dataRow++;
+                bool isHeaderRow = header && r == 0;
+                bool band = !isHeaderRow && !plain && style.BandedRows && (dataRow % 2 == 1);
+                if (!isHeaderRow) dataRow++;
 
-                int styleIdx = header ? 1
+                int styleIdx = isHeaderRow ? 1
                     : style.ForceTextCells ? (band ? 3 : 2)
                     : (band ? 5 : 4);
 
@@ -200,7 +245,7 @@ namespace SsmsSqlFormatter.Formatting
                     if (style.NullsAsEmpty && value == "NULL") value = "";
                     string cellRef = ColumnRef(c) + (r + 1);
 
-                    if (!header && !style.ForceTextCells && IsPlainNumber(value))
+                    if (!isHeaderRow && !style.ForceTextCells && IsPlainNumber(value))
                     {
                         sb.Append($"<c r=\"{cellRef}\" s=\"{styleIdx}\"><v>{value}</v></c>");
                     }
@@ -214,7 +259,16 @@ namespace SsmsSqlFormatter.Formatting
                 sb.Append("</row>");
             }
 
-            sb.Append("</sheetData></worksheet>");
+            sb.Append("</sheetData>");
+
+            // autoFilter must follow sheetData in the schema sequence.
+            if (header && style.AutoFilter && colCount > 0 && rows.Length > 1)
+            {
+                sb.Append("<autoFilter ref=\"A1:").Append(ColumnRef(colCount - 1))
+                  .Append(rows.Length).Append("\"/>");
+            }
+
+            sb.Append("</worksheet>");
             return sb.ToString();
         }
 

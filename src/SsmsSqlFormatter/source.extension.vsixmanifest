@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Id="SsmsSqlFormatter.7f3d2a1e-5b8c-4e9f-a6d0-1c4b7e2f9a35" Version="2.1.1" Language="en-US" Publisher="Shane" />
+    <Identity Id="SsmsSqlFormatter.7f3d2a1e-5b8c-4e9f-a6d0-1c4b7e2f9a35" Version="2.2.0" Language="en-US" Publisher="Shane" />
     <DisplayName>SSMS SQL Formatter (Rules + AI)</DisplayName>
     <Description xml:space="preserve">Formats T-SQL in the SSMS query window. Rule-based engine (Microsoft ScriptDom) with Classic and Modern style presets plus fully customizable options, and an optional AI engine (Anthropic Claude API) that preserves comments and follows custom style instructions. Tools &gt; Options &gt; SQL Formatter to configure. Ctrl+Shift+Alt+F to format.</Description>
     <Tags>SQL;T-SQL;Formatter;SSMS;AI</Tags>

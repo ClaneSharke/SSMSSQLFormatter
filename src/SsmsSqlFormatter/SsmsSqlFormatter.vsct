@@ -71,6 +71,22 @@
           <ToolTipText>Queue the current result set as a worksheet; Ctrl+Shift+Alt+X then opens one workbook with all queued sets (Ctrl+Shift+Alt+A)</ToolTipText>
         </Strings>
       </Button>
+      <Button guid="guidSsmsSqlFormatterCmdSet" id="cmdidExportSettings" priority="0x0120" type="Button">
+        <Parent guid="guidSsmsSqlFormatterCmdSet" id="ToolsMenuGroup" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Export Formatter Settings</ButtonText>
+          <ToolTipText>Save the current formatter and export settings to a JSON file</ToolTipText>
+        </Strings>
+      </Button>
+      <Button guid="guidSsmsSqlFormatterCmdSet" id="cmdidImportSettings" priority="0x0121" type="Button">
+        <Parent guid="guidSsmsSqlFormatterCmdSet" id="ToolsMenuGroup" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Import Formatter Settings</ButtonText>
+          <ToolTipText>Load formatter and export settings from a JSON file</ToolTipText>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
@@ -93,6 +109,8 @@
       <IDSymbol name="cmdidCopyResultsExcelContext" value="0x0104" />
       <IDSymbol name="cmdidOpenResultsExcel" value="0x0105" />
       <IDSymbol name="cmdidAddResultsSheet" value="0x0106" />
+      <IDSymbol name="cmdidExportSettings" value="0x0107" />
+      <IDSymbol name="cmdidImportSettings" value="0x0108" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>

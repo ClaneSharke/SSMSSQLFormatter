@@ -23,6 +23,9 @@ namespace SsmsSqlFormatter.Formatting
 
         public bool BandedRows = false;
         public string BandColor = "#F2F6FC";
+
+        public bool FreezeHeaderRow = true;
+        public bool AutoFilter = true;
     }
 
     /// <summary>

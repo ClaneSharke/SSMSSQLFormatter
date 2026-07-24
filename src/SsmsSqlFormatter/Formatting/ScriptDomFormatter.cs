@@ -356,6 +356,10 @@ namespace SsmsSqlFormatter.Formatting
             if (options.ReindentSubqueries)
                 sql = ReindentSubqueries(sql, Math.Max(1, options.IndentationSize));
 
+            if (options.FunctionCasing != IdentifierCase.Unchanged ||
+                options.DataTypeCasing != IdentifierCase.Unchanged)
+                sql = ApplyIdentifierCasing(sql, options.FunctionCasing, options.DataTypeCasing);
+
             if (options.Commas == CommaPlacement.Leading)
                 sql = MoveCommasToLineStart(sql);
 
@@ -500,6 +504,104 @@ namespace SsmsSqlFormatter.Formatting
                 sb.Append(text);
             }
             return sb.ToString();
+        }
+
+        private static readonly System.Collections.Generic.HashSet<string> BuiltInFunctions =
+            new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "ABS","AVG","CAST","CEILING","CHARINDEX","COALESCE","CONCAT","CONVERT","COUNT",
+                "COUNT_BIG","CURRENT_TIMESTAMP","DATEADD","DATEDIFF","DATENAME","DATEPART",
+                "DAY","EOMONTH","FLOOR","FORMAT","GETDATE","GETUTCDATE","IIF","ISDATE","ISNULL",
+                "ISNUMERIC","LEFT","LEN","LOWER","LTRIM","MAX","MIN","MONTH","NEWID","NULLIF",
+                "PATINDEX","POWER","REPLACE","REPLICATE","REVERSE","RIGHT","ROUND","ROW_NUMBER",
+                "RTRIM","SCOPE_IDENTITY","STRING_AGG","STUFF","SUBSTRING","SUM","SYSDATETIME",
+                "TRIM","TRY_CAST","TRY_CONVERT","UPPER","YEAR"
+            };
+
+        private static readonly System.Collections.Generic.HashSet<string> DataTypeNames =
+            new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "BIGINT","BINARY","BIT","CHAR","DATE","DATETIME","DATETIME2","DATETIMEOFFSET",
+                "DECIMAL","FLOAT","GEOGRAPHY","GEOMETRY","HIERARCHYID","IMAGE","INT","MONEY",
+                "NCHAR","NTEXT","NUMERIC","NVARCHAR","REAL","SMALLDATETIME","SMALLINT",
+                "SMALLMONEY","SQL_VARIANT","SYSNAME","TEXT","TIME","TIMESTAMP","TINYINT",
+                "UNIQUEIDENTIFIER","VARBINARY","VARCHAR","XML"
+            };
+
+        /// <summary>
+        /// Applies casing to built-in function names and data type keywords.
+        /// Token-aware: strings, comments, quoted identifiers and variables are never
+        /// touched. Function names are only re-cased when immediately followed by '(',
+        /// so a column that happens to share a function name is left alone; data types
+        /// are only re-cased when the parser classified them as type keywords rather
+        /// than identifiers.
+        /// </summary>
+        private static string ApplyIdentifierCasing(string sql, IdentifierCase functionCase,
+                                                    IdentifierCase dataTypeCase)
+        {
+            var parser = new TSql160Parser(initialQuotedIdentifiers: true);
+            TSqlFragment frag;
+            IList<ParseError> errors;
+            using (var reader = new StringReader(sql))
+            {
+                frag = parser.Parse(reader, out errors);
+            }
+            if (frag?.ScriptTokenStream == null) return sql;
+
+            var toks = frag.ScriptTokenStream;
+            var sb = new StringBuilder(sql.Length);
+
+            for (int i = 0; i < toks.Count; i++)
+            {
+                var t = toks[i];
+                if (t.TokenType == TSqlTokenType.EndOfFile) continue;
+                string text = t.Text ?? "";
+
+                bool safeToRecase =
+                    t.TokenType != TSqlTokenType.AsciiStringLiteral &&
+                    t.TokenType != TSqlTokenType.UnicodeStringLiteral &&
+                    t.TokenType != TSqlTokenType.QuotedIdentifier &&
+                    t.TokenType != TSqlTokenType.Variable &&
+                    t.TokenType != TSqlTokenType.SingleLineComment &&
+                    t.TokenType != TSqlTokenType.MultilineComment &&
+                    t.TokenType != TSqlTokenType.WhiteSpace;
+
+                if (safeToRecase && text.Length > 0)
+                {
+                    if (dataTypeCase != IdentifierCase.Unchanged &&
+                        t.TokenType != TSqlTokenType.Identifier &&
+                        DataTypeNames.Contains(text))
+                    {
+                        text = ChangeCase(text, dataTypeCase);
+                    }
+                    else if (functionCase != IdentifierCase.Unchanged &&
+                             BuiltInFunctions.Contains(text) &&
+                             NextNonWhitespaceIsOpenParen(toks, i))
+                    {
+                        text = ChangeCase(text, functionCase);
+                    }
+                }
+
+                sb.Append(text);
+            }
+            return sb.ToString();
+        }
+
+        private static bool NextNonWhitespaceIsOpenParen(IList<TSqlParserToken> toks, int index)
+        {
+            for (int j = index + 1; j < toks.Count; j++)
+            {
+                if (toks[j].TokenType == TSqlTokenType.WhiteSpace) continue;
+                return toks[j].TokenType == TSqlTokenType.LeftParenthesis;
+            }
+            return false;
+        }
+
+        private static string ChangeCase(string value, IdentifierCase mode)
+        {
+            return mode == IdentifierCase.Lowercase
+                ? value.ToLowerInvariant()
+                : value.ToUpperInvariant();
         }
 
         /// <summary>

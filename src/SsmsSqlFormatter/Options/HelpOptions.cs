@@ -26,6 +26,11 @@ namespace SsmsSqlFormatter.Options
         public string CopyResultsExcel => "Ctrl+Shift+Alt+X opens results as an Excel workbook";
 
         [Category("1. How to format")]
+        [DisplayName("Export options")]
+        [Description("Under Tools > Options > Format T-SQL Script > General: choose Xlsx or Csv, set an output folder (or be prompted each time), and optionally add a 'Query' sheet recording the SQL that produced the data. Appearance options add a frozen header row and AutoFilter dropdowns by default.")]
+        public string ExportOptions => "Format, output folder, query sheet, freeze and filter";
+
+        [Category("1. How to format")]
         [DisplayName("Results grid context menu")]
         [Description("SSMS's results grid builds its own private context menu, so right-clicking the grid (including the top-left corner) won't show this extension's commands - SSMS never asks extensions to contribute there. Use Ctrl+Shift+Alt+X, the Tools menu, or add a toolbar button: Tools > Customize > Commands > Toolbar > Standard > Add Command > category Tools > Copy Results as Excel Table. A toolbar button is always visible and survives upgrades.")]
         public string ResultsGridMenu => "Use the shortcut or add a toolbar button via Tools > Customize";
@@ -55,6 +60,11 @@ namespace SsmsSqlFormatter.Options
         [Description("'Blank lines before/after GO' (General page) set the exact number of blank lines around each GO batch separator. 'GO 5' batch counts and comments trailing a GO stay on the GO line. Set both options to -1 to leave GO spacing untouched.")]
         public string GoSpacing => "Exact blank-line control around GO batch separators";
 
+        [Category("2. Engines")]
+        [DisplayName("Share your settings")]
+        [Description("Tools > Export Formatter Settings writes every option to a JSON file; Tools > Import Formatter Settings applies one. Useful for sharing a house style across a team, or restoring your setup after a reinstall. Values that aren't recognised are skipped rather than overwriting your settings.")]
+        public string ShareSettings => "Tools > Export / Import Formatter Settings";
+
         [Category("4. Support")]
         [DisplayName("Project page and updates")]
         [Description("Documentation, source code, new releases, and the issue tracker live on GitHub: https://github.com/ClaneSharke/SSMSSQLFormatter - report scripts that format oddly as GitHub issues, ideally with a small example script.")]
@@ -62,6 +72,6 @@ namespace SsmsSqlFormatter.Options
 
         [Category("4. Support")]
         [DisplayName("Version")]
-        public string Version => "2.1.1";
+        public string Version => "2.2.0";
     }
 }

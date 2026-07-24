@@ -27,6 +27,22 @@ namespace SsmsSqlFormatter.Options
         PascalCase
     }
 
+    public enum ExportFormat
+    {
+        /// <summary>A styled .xlsx workbook.</summary>
+        Xlsx,
+        /// <summary>A comma-separated text file.</summary>
+        Csv
+    }
+
+    public enum IdentifierCase
+    {
+        /// <summary>Leave as written.</summary>
+        Unchanged,
+        Uppercase,
+        Lowercase
+    }
+
     public enum CommaPlacement
     {
         /// <summary>Commas at the end of each line (a, ↵ b).</summary>
@@ -52,6 +68,16 @@ namespace SsmsSqlFormatter.Options
         [Category("2. Basics")]
         [DisplayName("Keyword casing")]
         public KeywordCase KeywordCasing { get; set; } = KeywordCase.Uppercase;
+
+        [Category("2. Basics")]
+        [DisplayName("Built-in function casing")]
+        [Description("Casing for built-in function names such as GETDATE, COUNT, ISNULL. Unchanged leaves them as written. Only names immediately followed by '(' are affected, so columns sharing a function name are left alone.")]
+        public IdentifierCase FunctionCasing { get; set; } = IdentifierCase.Unchanged;
+
+        [Category("2. Basics")]
+        [DisplayName("Data type casing")]
+        [Description("Casing for data type keywords such as INT, VARCHAR, DATETIME. Unchanged leaves them as the keyword casing produced them.")]
+        public IdentifierCase DataTypeCasing { get; set; } = IdentifierCase.Unchanged;
 
         [Category("2. Basics")]
         [DisplayName("Indent size (spaces)")]
@@ -192,6 +218,26 @@ namespace SsmsSqlFormatter.Options
 
         // ---------- Copy results for Excel ----------
         [Category("7. Export results to Excel")]
+        [DisplayName("Export format")]
+        [Description("Xlsx = a styled workbook. Csv = a comma-separated text file (styling options do not apply).")]
+        public ExportFormat ExportAs { get; set; } = ExportFormat.Xlsx;
+
+        [Category("7. Export results to Excel")]
+        [DisplayName("Output folder")]
+        [Description("Folder for exported files. Leave empty to use the Windows temp folder. The folder is created if it doesn't exist; if it can't be used, the temp folder is used instead.")]
+        public string ExportFolder { get; set; } = "";
+
+        [Category("7. Export results to Excel")]
+        [DisplayName("Ask where to save")]
+        [Description("Show a Save As dialog for each export instead of writing straight to the output folder.")]
+        public bool ExportPrompt { get; set; } = false;
+
+        [Category("7. Export results to Excel")]
+        [DisplayName("Include query on a separate sheet")]
+        [Description("Add a 'Query' worksheet containing the SQL from the active query window, so the workbook records where the data came from. Xlsx only.")]
+        public bool ExportIncludeQuery { get; set; } = false;
+
+        [Category("7. Export results to Excel")]
         [DisplayName("Try to copy the grid automatically")]
         [Description("Sends the grid's Copy-with-Headers keystroke before converting. This only works when the results grid still has focus, i.e. when you use the Ctrl+Shift+Alt+X shortcut - clicking a toolbar button or menu item moves focus away, in which case whatever you copied yourself is converted instead.")]
         public bool ExcelSimulateCopyFirst { get; set; } = true;
@@ -243,6 +289,16 @@ namespace SsmsSqlFormatter.Options
         [DisplayName("Border colour")]
         [Description("Colour of the cell borders when 'Show cell borders' is on.")]
         public Color ExcelBorderColor { get; set; } = ColorTranslator.FromHtml("#B4C6E7");
+
+        [Category("8. Excel appearance")]
+        [DisplayName("Freeze header row")]
+        [Description("Keep the header row visible when scrolling through long result sets.")]
+        public bool ExcelFreezeHeader { get; set; } = true;
+
+        [Category("8. Excel appearance")]
+        [DisplayName("Add AutoFilter to headers")]
+        [Description("Add Excel filter dropdowns to the header row so results can be filtered and sorted immediately.")]
+        public bool ExcelAutoFilter { get; set; } = true;
 
         [Category("8. Excel appearance")]
         [DisplayName("Banded rows")]

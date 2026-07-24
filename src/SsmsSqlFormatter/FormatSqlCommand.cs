@@ -24,6 +24,8 @@ namespace SsmsSqlFormatter
         public const int CopyExcelContextCommandId = 0x0104;
         public const int OpenExcelCommandId = 0x0105;
         public const int AddSheetCommandId = 0x0106;
+        public const int ExportSettingsCommandId = 0x0107;
+        public const int ImportSettingsCommandId = 0x0108;
 
         private readonly SsmsSqlFormatterPackage _package;
 
@@ -37,6 +39,8 @@ namespace SsmsSqlFormatter
             commandService.AddCommand(new MenuCommand(ExecuteCopyExcel, new CommandID(CommandSet, CopyExcelContextCommandId)));
             commandService.AddCommand(new MenuCommand(ExecuteOpenExcel, new CommandID(CommandSet, OpenExcelCommandId)));
             commandService.AddCommand(new MenuCommand(ExecuteAddSheet, new CommandID(CommandSet, AddSheetCommandId)));
+            commandService.AddCommand(new MenuCommand(ExecuteExportSettings, new CommandID(CommandSet, ExportSettingsCommandId)));
+            commandService.AddCommand(new MenuCommand(ExecuteImportSettings, new CommandID(CommandSet, ImportSettingsCommandId)));
         }
 
         // Result sets queued by "Add Results as Sheet", exported together as one workbook.
@@ -213,7 +217,7 @@ namespace SsmsSqlFormatter
                 if (sheets.Count == 0 || sheets[sheets.Count - 1] != text) sheets.Add(text);
                 PendingSheets.Clear();
 
-                OpenWorkbook(sheets, BuildStyle(general));
+                ExportResults(sheets, general);
                 var dte = (DTE2)Package.GetGlobalService(typeof(DTE));
                 SetStatus(dte, $"Workbook opened with {sheets.Count} sheet(s).");
             }
@@ -299,13 +303,99 @@ namespace SsmsSqlFormatter
                 if (sheets.Count == 0 || sheets[sheets.Count - 1] != text) sheets.Add(text);
                 PendingSheets.Clear();
 
-                OpenWorkbook(sheets, BuildStyle(general));
+                ExportResults(sheets, general);
                 var dte = (DTE2)Package.GetGlobalService(typeof(DTE));
                 SetStatus(dte, $"Workbook opened with {sheets.Count} sheet(s).");
             }
             catch (Exception ex)
             {
                 ShowError("Could not open the results in Excel: " + ex.Message);
+            }
+        }
+
+
+
+        private void ExecuteExportSettings(object sender, EventArgs e)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            try
+            {
+                var general = _package.GetGeneralOptions();
+                using (var dialog = new System.Windows.Forms.SaveFileDialog())
+                {
+                    dialog.Title = "Export formatter settings";
+                    dialog.FileName = "SsmsSqlFormatter.settings.json";
+                    dialog.DefaultExt = "json";
+                    dialog.Filter = "JSON file (*.json)|*.json|All files (*.*)|*.*";
+                    dialog.OverwritePrompt = true;
+                    if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+
+                    var json = new Newtonsoft.Json.Linq.JObject();
+                    foreach (var prop in typeof(Options.GeneralOptions).GetProperties())
+                    {
+                        if (!prop.CanRead || !prop.CanWrite) continue;
+                        object value = prop.GetValue(general);
+                        if (value is System.Drawing.Color color) json[prop.Name] = Hex(color);
+                        else if (value is Enum) json[prop.Name] = value.ToString();
+                        else json[prop.Name] = Newtonsoft.Json.Linq.JToken.FromObject(value ?? "");
+                    }
+                    System.IO.File.WriteAllText(dialog.FileName, json.ToString());
+                    ShowInfo("Settings exported to:\r\n" + dialog.FileName);
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowError("Could not export settings: " + ex.Message);
+            }
+        }
+
+        /// <summary>Applies settings previously exported to a JSON file.</summary>
+        private void ExecuteImportSettings(object sender, EventArgs e)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            try
+            {
+                var general = _package.GetGeneralOptions();
+                using (var dialog = new System.Windows.Forms.OpenFileDialog())
+                {
+                    dialog.Title = "Import formatter settings";
+                    dialog.Filter = "JSON file (*.json)|*.json|All files (*.*)|*.*";
+                    if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+
+                    var json = Newtonsoft.Json.Linq.JObject.Parse(
+                        System.IO.File.ReadAllText(dialog.FileName));
+
+                    int applied = 0, skipped = 0;
+                    foreach (var prop in typeof(Options.GeneralOptions).GetProperties())
+                    {
+                        if (!prop.CanRead || !prop.CanWrite) continue;
+                        var token = json[prop.Name];
+                        if (token == null) continue;
+                        try
+                        {
+                            if (prop.PropertyType == typeof(System.Drawing.Color))
+                                prop.SetValue(general,
+                                    System.Drawing.ColorTranslator.FromHtml((string)token));
+                            else if (prop.PropertyType.IsEnum)
+                                prop.SetValue(general, Enum.Parse(prop.PropertyType, (string)token, true));
+                            else
+                                prop.SetValue(general, token.ToObject(prop.PropertyType));
+                            applied++;
+                        }
+                        catch
+                        {
+                            skipped++;   // unknown or malformed value - keep the existing setting
+                        }
+                    }
+
+                    general.SaveSettingsToStorage();
+                    ShowInfo($"Imported {applied} setting(s)." +
+                             (skipped > 0 ? $" {skipped} value(s) were not recognised and were left unchanged." : ""));
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowError("Could not import settings: " + ex.Message);
             }
         }
 
@@ -366,22 +456,45 @@ namespace SsmsSqlFormatter
                 BandColor = Hex(general.ExcelBandColor)
             };
         }
-
         /// <summary>
-        /// Writes the result sets to a temporary genuine .xlsx workbook (one sheet
-        /// per set) and launches it. Dependable where clipboard access is
-        /// restricted (elevated SSMS, remote desktop, locked-down policies).
+        /// Writes the captured result sets to a workbook (or CSV) and opens it.
+        /// Honours the output folder, format, save-prompt and include-query options.
         /// </summary>
-        private static void OpenWorkbook(System.Collections.Generic.IList<string> tsvs,
-                                         Formatting.ExcelStyle style)
+        private void ExportResults(System.Collections.Generic.IList<string> tsvs,
+                                   Options.GeneralOptions general)
         {
             try
             {
-                string path = System.IO.Path.Combine(
-                    System.IO.Path.GetTempPath(),
-                    "SsmsResults_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".xlsx");
+                bool csv = general.ExportAs == Options.ExportFormat.Csv;
+                string extension = csv ? ".csv" : ".xlsx";
+                string fileName = "SsmsResults_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + extension;
 
-                Formatting.XlsxWriter.Write(path, tsvs, style);
+                string path = BuildOutputPath(general, fileName, extension, csv);
+                if (path == null) return;   // user cancelled the save dialog
+
+                if (csv)
+                {
+                    Formatting.CsvWriter.Write(path, tsvs, ',', general.ExcelNullsAsEmpty);
+                }
+                else
+                {
+                    var sheets = new System.Collections.Generic.List<Formatting.XlsxSheet>();
+                    for (int i = 0; i < tsvs.Count; i++)
+                        sheets.Add(new Formatting.XlsxSheet
+                        {
+                            Name = tsvs.Count == 1 ? "Results" : "Results " + (i + 1),
+                            Tsv = tsvs[i]
+                        });
+
+                    if (general.ExportIncludeQuery)
+                    {
+                        string query = GetActiveQueryText();
+                        if (!string.IsNullOrWhiteSpace(query))
+                            sheets.Add(new Formatting.XlsxSheet { Name = "Query", Tsv = query, Plain = true });
+                    }
+
+                    Formatting.XlsxWriter.WriteSheets(path, sheets, BuildStyle(general));
+                }
 
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path)
                 {
@@ -390,7 +503,66 @@ namespace SsmsSqlFormatter
             }
             catch (Exception ex)
             {
-                ShowError("Could not open the results in Excel: " + ex.Message);
+                ShowError("Could not export the results: " + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Decides where the export is written: a Save As dialog when requested,
+        /// otherwise the configured output folder, falling back to the temp folder
+        /// when that folder is missing or unusable.
+        /// </summary>
+        private static string BuildOutputPath(Options.GeneralOptions general, string fileName,
+                                              string extension, bool csv)
+        {
+            string folder = System.IO.Path.GetTempPath();
+
+            if (!string.IsNullOrWhiteSpace(general.ExportFolder))
+            {
+                try
+                {
+                    if (!System.IO.Directory.Exists(general.ExportFolder))
+                        System.IO.Directory.CreateDirectory(general.ExportFolder);
+                    folder = general.ExportFolder;
+                }
+                catch
+                {
+                    // Unusable folder - fall back to temp rather than failing the export.
+                }
+            }
+
+            if (!general.ExportPrompt)
+                return System.IO.Path.Combine(folder, fileName);
+
+            using (var dialog = new System.Windows.Forms.SaveFileDialog())
+            {
+                dialog.Title = "Export results";
+                dialog.FileName = fileName;
+                dialog.InitialDirectory = folder;
+                dialog.DefaultExt = extension.TrimStart('.');
+                dialog.Filter = csv
+                    ? "CSV file (*.csv)|*.csv|All files (*.*)|*.*"
+                    : "Excel workbook (*.xlsx)|*.xlsx|All files (*.*)|*.*";
+                dialog.OverwritePrompt = true;
+                return dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK
+                    ? dialog.FileName : null;
+            }
+        }
+
+        /// <summary>Text of the active query window, used for the optional Query sheet.</summary>
+        private static string GetActiveQueryText()
+        {
+            try
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                var dte = (DTE2)Package.GetGlobalService(typeof(DTE));
+                var textDoc = dte?.ActiveDocument?.Object("TextDocument") as TextDocument;
+                if (textDoc == null) return null;
+                return textDoc.StartPoint.CreateEditPoint().GetText(textDoc.EndPoint);
+            }
+            catch
+            {
+                return null;
             }
         }
 
