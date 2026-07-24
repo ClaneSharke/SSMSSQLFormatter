@@ -1,3 +1,5 @@
+# v2.2.1 — Excel export enhancements, casing control and settings sharing
+
 **New in this release**
 
 **Excel export**

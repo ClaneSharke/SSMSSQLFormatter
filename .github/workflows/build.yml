@@ -37,10 +37,24 @@ jobs:
           if-no-files-found: error
 
       # Optional: attach the VSIX to a GitHub Release when you push a tag like v1.0.0
+      - name: Prepare release title and body
+        if: startsWith(github.ref, 'refs/tags/v')
+        id: relmeta
+        shell: bash
+        run: |
+          if head -n 1 RELEASE_NOTES.md | grep -q '^# '; then
+            title=$(head -n 1 RELEASE_NOTES.md | sed 's/^#\+ *//')
+            tail -n +2 RELEASE_NOTES.md > release-body.md
+          else
+            title="${GITHUB_REF_NAME}"
+            cp RELEASE_NOTES.md release-body.md
+          fi
+          echo "title=$title" >> "$GITHUB_OUTPUT"
+
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          name: ${{ github.ref_name }}
-          body_path: RELEASE_NOTES.md
+          name: ${{ steps.relmeta.outputs.title }}
+          body_path: release-body.md
           files: src/SsmsSqlFormatter/bin/Release/SsmsSqlFormatter.vsix
