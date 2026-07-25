@@ -123,4 +123,4 @@ src/SsmsSqlFormatter/
     GeneralOptions.cs          – Tools>Options "General" page
     AiOptions.cs               – Tools>Options "AI Engine" page
 ```
---test upload
+
