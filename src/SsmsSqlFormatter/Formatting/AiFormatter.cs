@@ -65,19 +65,13 @@ namespace SsmsSqlFormatter.Formatting
                         }
 
                         var json = JObject.Parse(body);
-                        var sb = new StringBuilder();
-                        foreach (var block in (JArray)json["content"] ?? new JArray())
-                        {
-                            if ((string)block["type"] == "text")
-                                sb.Append((string)block["text"]);
-                        }
-
-                        var text = StripCodeFences(sb.ToString().Trim());
+                        var text = ParseModelOutput(json);
                         if (string.IsNullOrWhiteSpace(text))
                         {
                             result.ErrorMessage = "The AI returned an empty response.";
                             return result;
                         }
+                        text = StripCodeFences(text.Trim());
 
                         result.FormattedSql = text;
                         result.Success = true;
@@ -123,15 +117,52 @@ namespace SsmsSqlFormatter.Formatting
             return sb.ToString();
         }
 
+        private static string ParseModelOutput(JObject json)
+        {
+            if (json["content"] is JArray contentArray)
+            {
+                var sb = new StringBuilder();
+                foreach (var block in contentArray)
+                {
+                    if ((string)block["type"] == "text")
+                        sb.Append((string)block["text"] ?? string.Empty);
+                }
+
+                if (sb.Length > 0)
+                    return sb.ToString();
+            }
+
+            if (json["completion"] != null)
+            {
+                return (string)json["completion"] ?? string.Empty;
+            }
+
+            if (json["response"] != null)
+            {
+                return (string)json["response"] ?? string.Empty;
+            }
+
+            return string.Empty;
+        }
+
         private static string StripCodeFences(string text)
         {
-            if (text.StartsWith("```"))
+            const string tripleFence = "```";
+            if (text.StartsWith(tripleFence, StringComparison.Ordinal))
             {
-                var firstNewline = text.IndexOf('\n');
-                if (firstNewline >= 0) text = text.Substring(firstNewline + 1);
-                var lastFence = text.LastIndexOf("```", StringComparison.Ordinal);
-                if (lastFence >= 0) text = text.Substring(0, lastFence);
+                int firstNewline = text.IndexOf('\n');
+                if (firstNewline >= 0)
+                    text = text.Substring(firstNewline + 1);
+                int lastFence = text.LastIndexOf(tripleFence, StringComparison.Ordinal);
+                if (lastFence >= 0)
+                    text = text.Substring(0, lastFence);
             }
+
+            if (text.StartsWith("`", StringComparison.Ordinal) && text.EndsWith("`", StringComparison.Ordinal))
+            {
+                text = text.Trim('`').Trim();
+            }
+
             return text.Trim();
         }
 
