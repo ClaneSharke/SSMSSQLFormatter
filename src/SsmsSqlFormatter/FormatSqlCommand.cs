@@ -156,7 +156,7 @@ namespace SsmsSqlFormatter
         /// </summary>
         private void RunDeferred(Func<System.Threading.Tasks.Task> action)
         {
-            _package.JoinableTaskFactory.RunAsync(async () =>
+            _ = _package.JoinableTaskFactory.RunAsync(async () =>
             {
                 await System.Threading.Tasks.Task.Delay(300);
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
@@ -614,7 +614,7 @@ namespace SsmsSqlFormatter
         private void Execute(object sender, EventArgs e)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            _package.JoinableTaskFactory.RunAsync(async () =>
+            _ = _package.JoinableTaskFactory.RunAsync(async () =>
             {
                 try
                 {
