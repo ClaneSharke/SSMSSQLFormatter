@@ -55,6 +55,59 @@ namespace SsmsSqlFormatter
         /// data - so stale clipboard content (URLs, text from other apps) can
         /// never be exported by mistake.
         /// </summary>
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool EnableWindow(IntPtr hWnd, bool bEnable);
+
+        /// <summary>
+        /// Shows a status window during the export and updates the user. Input to
+        /// SSMS is blocked only AFTER the grid has been captured (during the file
+        /// write), not during the capture itself - disabling the window during the
+        /// capture could stop the grid from receiving the copy keystroke. Blocking
+        /// during the write is what prevents stray clicks from disrupting the
+        /// (already fast) file generation and the launch of Excel.
+        /// </summary>
+        private async System.Threading.Tasks.Task RunWithProgressAsync(
+            string initialText, Func<ProgressDialog, System.Threading.Tasks.Task> work)
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            var progress = new ProgressDialog(initialText);
+            try
+            {
+                progress.Show();
+                progress.Refresh();
+                await work(progress);
+            }
+            finally
+            {
+                progress.Close();
+                progress.Dispose();
+            }
+        }
+
+        /// <summary>Runs an action with SSMS input disabled - used for the write phase only.</summary>
+        private static void WithInputBlocked(Action action)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            IntPtr hwnd = IntPtr.Zero;
+            try
+            {
+                var dte = (DTE2)Package.GetGlobalService(typeof(DTE));
+                hwnd = new IntPtr(dte.MainWindow.HWnd);
+            }
+            catch { /* best effort */ }
+
+            try
+            {
+                if (hwnd != IntPtr.Zero) EnableWindow(hwnd, false);
+                action();
+            }
+            finally
+            {
+                if (hwnd != IntPtr.Zero) EnableWindow(hwnd, true);
+            }
+        }
+
         private async System.Threading.Tasks.Task<string> AcquireResultsAsync(Options.GeneralOptions general)
         {
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
@@ -210,16 +263,21 @@ namespace SsmsSqlFormatter
             try
             {
                 var general = _package.GetGeneralOptions();
-                string text = await AcquireResultsAsync(general);
-                if (text == null) return;
+                await RunWithProgressAsync("Capturing results\u2026", async progress =>
+                {
+                    string text = await AcquireResultsAsync(general);
+                    if (text == null) return;
 
-                var sheets = new System.Collections.Generic.List<string>(PendingSheets);
-                if (sheets.Count == 0 || sheets[sheets.Count - 1] != text) sheets.Add(text);
-                PendingSheets.Clear();
+                    var sheets = new System.Collections.Generic.List<string>(PendingSheets);
+                    if (sheets.Count == 0 || sheets[sheets.Count - 1] != text) sheets.Add(text);
+                    PendingSheets.Clear();
 
-                ExportResults(sheets, general);
-                var dte = (DTE2)Package.GetGlobalService(typeof(DTE));
-                SetStatus(dte, $"Workbook opened with {sheets.Count} sheet(s).");
+                    progress.SetStatus("Writing workbook\u2026");
+                    WithInputBlocked(() => ExportResults(sheets, general));
+
+                    var dte = (DTE2)Package.GetGlobalService(typeof(DTE));
+                    SetStatus(dte, $"Workbook opened with {sheets.Count} sheet(s).");
+                });
             }
             catch (Exception ex)
             {
@@ -296,14 +354,18 @@ namespace SsmsSqlFormatter
             try
             {
                 var general = _package.GetGeneralOptions();
-                string text = await AcquireResultsAsync(general);
-                if (text == null) return;
+                await RunWithProgressAsync("Capturing results\u2026", async progress =>
+                {
+                    string text = await AcquireResultsAsync(general);
+                    if (text == null) return;
 
-                var sheets = new System.Collections.Generic.List<string>(PendingSheets);
-                if (sheets.Count == 0 || sheets[sheets.Count - 1] != text) sheets.Add(text);
-                PendingSheets.Clear();
+                    var sheets = new System.Collections.Generic.List<string>(PendingSheets);
+                    if (sheets.Count == 0 || sheets[sheets.Count - 1] != text) sheets.Add(text);
+                    PendingSheets.Clear();
 
-                ExportResults(sheets, general);
+                    progress.SetStatus("Writing workbook\u2026");
+                    WithInputBlocked(() => ExportResults(sheets, general));
+                });
                 var dte = (DTE2)Package.GetGlobalService(typeof(DTE));
                 SetStatus(dte, $"Workbook opened with {sheets.Count} sheet(s).");
             }

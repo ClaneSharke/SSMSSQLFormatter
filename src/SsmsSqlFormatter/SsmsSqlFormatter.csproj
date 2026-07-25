@@ -66,6 +66,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="FormatSqlCommand.cs" />
+    <Compile Include="ProgressDialog.cs" />
     <Compile Include="Formatting\AiFormatter.cs" />
     <Compile Include="Formatting\CsvWriter.cs" />
     <Compile Include="Formatting\ExcelClipboard.cs" />
