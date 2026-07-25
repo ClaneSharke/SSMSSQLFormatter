@@ -365,10 +365,9 @@ namespace SsmsSqlFormatter
 
                     progress.SetStatus("Writing workbook\u2026");
                     WithInputBlocked(() => ExportResults(sheets, general));
-
-                    var dte = (DTE2)Package.GetGlobalService(typeof(DTE));
-                    SetStatus(dte, $"Workbook opened with {sheets.Count} sheet(s).");
                 });
+                var dte = (DTE2)Package.GetGlobalService(typeof(DTE));
+                SetStatus(dte, $"Workbook opened with {sheets.Count} sheet(s).");
             }
             catch (Exception ex)
             {
