@@ -1,13 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Id="SsmsSqlFormatter.7f3d2a1e-5b8c-4e9f-a6d0-1c4b7e2f9a35" Version="2.2.3" Language="en-US" Publisher="Shane" />
+    <Identity Id="SsmsSqlFormatter.7f3d2a1e-5b8c-4e9f-a6d0-1c4b7e2f9a35" Version="2.2.2" Language="en-US" Publisher="Shane" />
     <DisplayName>SSMS SQL Formatter (Rules + AI)</DisplayName>
     <Description xml:space="preserve">Format T-SQL and export results to Excel, without leaving SSMS.
 
-Formatting (Ctrl+Shift+Alt+F): built on Microsoft's ScriptDom parser. Classic and Modern presets or fully custom rules - casing, indentation, commas, line breaks, subquery indentation, GO and blank-line control. Comments are preserved. Optional AI engine with your own Anthropic API key.
+FORMATTING (Ctrl+Shift+Alt+F, or right-click &gt; Format T-SQL Script)
+Built on Microsoft's ScriptDom parser, so it understands standard T-SQL and never modifies a script it can't fully parse. Classic (compact) and Modern (expanded) presets, or set every rule individually: keyword, function and data type casing, indentation with spaces or tabs, leading or trailing commas, per-clause line breaks, subquery re-indentation, and exact blank-line control between statements and around GO. Comments are preserved and re-attached to the code they belong to - never silently deleted. An optional AI engine (your own Anthropic API key) follows free-form style instructions.
 
-Export to Excel (Ctrl+Shift+Alt+X): click the results grid, Ctrl+A, then the shortcut - a styled .xlsx opens with frozen headers and AutoFilter, leading zeros intact. Fonts, colours, CSV output, output folder, query sheet, and multi-result-set workbooks. Settings export/import as JSON. Free and open source (MIT).</Description>
+EXPORT RESULTS TO EXCEL (Ctrl+Shift+Alt+X)
+Click in the results grid, press Ctrl+A, then Ctrl+Shift+Alt+X - a styled .xlsx workbook opens, with a frozen header row and AutoFilter dropdowns. Leading zeros and long IDs stay intact instead of becoming scientific notation or dates. Choose fonts, colours, borders and banded rows; export to CSV instead; write to a folder of your choice; optionally include the query on its own sheet. Ctrl+Shift+Alt+A queues extra result sets so a multi-result query becomes one workbook with a sheet per set.
+
+Settings live under Tools &gt; Options &gt; Format T-SQL Script, and can be exported and imported as JSON to share a house style. Free and open source (MIT).</Description>
     <Tags>SQL;T-SQL;Formatter;SSMS;AI</Tags>
   </Metadata>
   <Installation>
