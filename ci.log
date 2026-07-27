@@ -1,103 +1,171 @@
-build-and-test	Build and test (script)	﻿2026-07-27T07:16:27.0306448Z ##[group]Run pwsh -NoProfile -ExecutionPolicy Bypass -File .\build.ps1 -Configuration Release
-build-and-test	Build and test (script)	2026-07-27T07:16:27.0307241Z ^[[36;1mpwsh -NoProfile -ExecutionPolicy Bypass -File .\build.ps1 -Configuration Release^[[0m
-build-and-test	Build and test (script)	2026-07-27T07:16:27.0438624Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
-build-and-test	Build and test (script)	2026-07-27T07:16:27.0438997Z ##[endgroup]
-build-and-test	Build and test (script)	2026-07-27T07:16:27.6648567Z Build script starting (Configuration=Release)
-build-and-test	Build and test (script)	2026-07-27T07:16:27.6657181Z Restoring NuGet packages...
-build-and-test	Build and test (script)	2026-07-27T07:16:28.3165767Z MSBuild auto-detection: using msbuild version '18.7.8.30822' from 'C:\Program Files\Microsoft Visual Studio\18\Enterprise\MSBuild\Current\Bin'.
-build-and-test	Build and test (script)	2026-07-27T07:16:29.7950132Z Assets file has not changed. Skipping assets file writing. Path: D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter.Tests\obj\project.assets.json
-build-and-test	Build and test (script)	2026-07-27T07:16:29.7951769Z Assets file has not changed. Skipping assets file writing. Path: D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\obj\project.assets.json
-build-and-test	Build and test (script)	2026-07-27T07:16:29.7961084Z Restored D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter.Tests\SsmsSqlFormatter.Tests.csproj (in 262 ms).
-build-and-test	Build and test (script)	2026-07-27T07:16:29.7962822Z Restored D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\SsmsSqlFormatter.csproj (in 263 ms).
-build-and-test	Build and test (script)	2026-07-27T07:16:29.8020261Z 
-build-and-test	Build and test (script)	2026-07-27T07:16:29.8021411Z NuGet Config files used:
-build-and-test	Build and test (script)	2026-07-27T07:16:29.8022053Z     C:\Users\runneradmin\AppData\Roaming\NuGet\NuGet.Config
-build-and-test	Build and test (script)	2026-07-27T07:16:29.8022742Z     C:\Program Files (x86)\NuGet\Config\Microsoft.VisualStudio.FallbackLocation.config
-build-and-test	Build and test (script)	2026-07-27T07:16:29.8023453Z     C:\Program Files (x86)\NuGet\Config\Microsoft.VisualStudio.Offline.config
-build-and-test	Build and test (script)	2026-07-27T07:16:29.8023841Z 
-build-and-test	Build and test (script)	2026-07-27T07:16:29.8023927Z Feeds used:
-build-and-test	Build and test (script)	2026-07-27T07:16:29.8024204Z     C:\Program Files (x86)\Microsoft SDKs\NuGetPackages\
-build-and-test	Build and test (script)	2026-07-27T07:16:29.8024611Z     https://api.nuget.org/v3/index.json
-build-and-test	Build and test (script)	2026-07-27T07:16:29.8031726Z All projects are up-to-date for restore.
-build-and-test	Build and test (script)	2026-07-27T07:16:29.8268222Z Locating MSBuild...
-build-and-test	Build and test (script)	2026-07-27T07:16:29.8531779Z Using MSBuild: C:\Program Files\Microsoft Visual Studio\18\Enterprise\MSBuild\Current\Bin\MSBuild.exe
-build-and-test	Build and test (script)	2026-07-27T07:16:29.8537812Z Building solution...
-build-and-test	Build and test (script)	2026-07-27T07:16:29.9462519Z MSBuild version 18.7.8+1ac568fee for .NET Framework
-build-and-test	Build and test (script)	2026-07-27T07:16:29.9849987Z Build started 7/27/2026 7:16:29 AM.
-build-and-test	Build and test (script)	2026-07-27T07:16:29.9853977Z 
-build-and-test	Build and test (script)	2026-07-27T07:16:30.0383924Z      1>Project "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\SsmsSqlFormatter.sln" on node 1 (default targets).
-build-and-test	Build and test (script)	2026-07-27T07:16:30.0384932Z      1>ValidateSolutionConfiguration:
-build-and-test	Build and test (script)	2026-07-27T07:16:30.0385480Z          Building solution configuration "Release|Any CPU".
-build-and-test	Build and test (script)	2026-07-27T07:16:30.5538101Z      1>Project "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\SsmsSqlFormatter.sln" (1) is building "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\SsmsSqlFormatter.csproj" (4) on node 1 (default targets).
-build-and-test	Build and test (script)	2026-07-27T07:16:30.5539862Z      4>MainResourcesGeneration:
-build-and-test	Build and test (script)	2026-07-27T07:16:30.5540836Z        Skipping target "MainResourcesGeneration" because all output files are up-to-date with respect to the input files.
-build-and-test	Build and test (script)	2026-07-27T07:16:30.5749957Z        CoreResGen:
-build-and-test	Build and test (script)	2026-07-27T07:16:30.5750802Z          No resources are out of date with respect to their source files. Skipping resource generation.
-build-and-test	Build and test (script)	2026-07-27T07:16:30.8296690Z        VSCTCompile:
-build-and-test	Build and test (script)	2026-07-27T07:16:30.8297341Z          No out of date dependencies, skipping execution.
-build-and-test	Build and test (script)	2026-07-27T07:16:30.8298589Z        CreateMenuPkgDef:
-build-and-test	Build and test (script)	2026-07-27T07:16:30.8299078Z        Skipping target "CreateMenuPkgDef" because it has no outputs.
-build-and-test	Build and test (script)	2026-07-27T07:16:30.8300232Z        CheckCTOFileHasChanged:
-build-and-test	Build and test (script)	2026-07-27T07:16:30.8300949Z        Skipping target "CheckCTOFileHasChanged" because all output files are up-to-date with respect to the input files.
-build-and-test	Build and test (script)	2026-07-27T07:16:30.8641099Z        GenerateTargetFrameworkMonikerAttribute:
-build-and-test	Build and test (script)	2026-07-27T07:16:30.8642436Z        Skipping target "GenerateTargetFrameworkMonikerAttribute" because all output files are up-to-date with respect to the input files.
-build-and-test	Build and test (script)	2026-07-27T07:16:30.8732553Z        CoreCompile:
-build-and-test	Build and test (script)	2026-07-27T07:16:30.8733425Z        Skipping target "CoreCompile" because all output files are up-to-date with respect to the input files.
-build-and-test	Build and test (script)	2026-07-27T07:16:30.8742783Z        ZipProjects:
-build-and-test	Build and test (script)	2026-07-27T07:16:30.8743165Z          Zipping ProjectTemplates
-build-and-test	Build and test (script)	2026-07-27T07:16:30.8754856Z          SsmsSqlFormatter -> 
-build-and-test	Build and test (script)	2026-07-27T07:16:30.8756197Z        ZipItems:
-build-and-test	Build and test (script)	2026-07-27T07:16:30.8757368Z          Zipping ItemTemplates
-build-and-test	Build and test (script)	2026-07-27T07:16:30.8762432Z          SsmsSqlFormatter -> 
-build-and-test	Build and test (script)	2026-07-27T07:16:30.8840256Z        CopyFilesToOutputDirectory:
-build-and-test	Build and test (script)	2026-07-27T07:16:30.8841375Z          SsmsSqlFormatter -> D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\bin\Release\SsmsSqlFormatter.dll
-build-and-test	Build and test (script)	2026-07-27T07:16:30.8845469Z        GeneratePkgDef:
-build-and-test	Build and test (script)	2026-07-27T07:16:30.8846671Z        Skipping target "GeneratePkgDef" because all output files are up-to-date with respect to the input files.
-build-and-test	Build and test (script)	2026-07-27T07:16:30.9274810Z        CreateVsixContainer:
-build-and-test	Build and test (script)	2026-07-27T07:16:30.9275354Z          Creating VSIX Container...
-build-and-test	Build and test (script)	2026-07-27T07:16:30.9387929Z          C:\Users\runneradmin\.nuget\packages\microsoft.vssdk.buildtools\17.9.3168\tools\VSSDK\bin\VsixUtil.exe package -sourceManifest "obj\Release\extension.vsixmanifest" -outputPath "bin\Release\SsmsSqlFormatter.vsix" -files "obj\Release\\files.json" -compressionLevel "Normal" -is64BitBuild 
-build-and-test	Build and test (script)	2026-07-27T07:16:31.8494207Z          SsmsSqlFormatter -> D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\bin\Release\SsmsSqlFormatter.vsix
-build-and-test	Build and test (script)	2026-07-27T07:16:31.8543082Z        VsixCompatibilityAnalyzer:
-build-and-test	Build and test (script)	2026-07-27T07:16:31.8543798Z          Executing CompatibilityAnalyzer..
-build-and-test	Build and test (script)	2026-07-27T07:16:31.9528380Z        CopyVsixManifestFile:
-build-and-test	Build and test (script)	2026-07-27T07:16:31.9529479Z          Copying file from "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\obj\Release\extension.vsixmanifest" to "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\bin\Release\extension.vsixmanifest".
-build-and-test	Build and test (script)	2026-07-27T07:16:31.9538566Z          SsmsSqlFormatter -> D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\bin\Release\extension.vsixmanifest
-build-and-test	Build and test (script)	2026-07-27T07:16:31.9539450Z        CreateMenuPkgDef:
-build-and-test	Build and test (script)	2026-07-27T07:16:31.9539761Z        Skipping target "CreateMenuPkgDef" because it has no outputs.
-build-and-test	Build and test (script)	2026-07-27T07:16:31.9590607Z        IncrementalClean:
-build-and-test	Build and test (script)	2026-07-27T07:16:31.9591543Z          Deleting file "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\obj\Release\VSCT.read.1.tlog".
-build-and-test	Build and test (script)	2026-07-27T07:16:31.9593006Z          Deleting file "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\obj\Release\VSCT.write.1.tlog".
-build-and-test	Build and test (script)	2026-07-27T07:16:31.9594610Z          Deleting file "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\obj\Release\_EmptyResource.resources.original".
-build-and-test	Build and test (script)	2026-07-27T07:16:31.9637623Z      4>Done Building Project "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\SsmsSqlFormatter.csproj" (default targets).
-build-and-test	Build and test (script)	2026-07-27T07:16:32.0655451Z      1>Project "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\SsmsSqlFormatter.sln" (1) is building "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\tools\FormatterBench\FormatterBench.csproj" (3) on node 3 (default targets).
-build-and-test	Build and test (script)	2026-07-27T07:16:32.0659878Z      3>GenerateTargetFrameworkMonikerAttribute:
-build-and-test	Build and test (script)	2026-07-27T07:16:32.0662844Z        Skipping target "GenerateTargetFrameworkMonikerAttribute" because all output files are up-to-date with respect to the input files.
-build-and-test	Build and test (script)	2026-07-27T07:16:32.0665448Z        CoreCompile:
-build-and-test	Build and test (script)	2026-07-27T07:16:32.0667536Z        Skipping target "CoreCompile" because all output files are up-to-date with respect to the input files.
-build-and-test	Build and test (script)	2026-07-27T07:16:32.0782599Z        CopyFilesToOutputDirectory:
-build-and-test	Build and test (script)	2026-07-27T07:16:32.0786259Z          FormatterBench -> D:\a\SSMSSQLFormatter\SSMSSQLFormatter\tools\FormatterBench\bin\Release\FormatterBench.exe
-build-and-test	Build and test (script)	2026-07-27T07:16:32.0831094Z      3>Done Building Project "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\tools\FormatterBench\FormatterBench.csproj" (default targets).
-build-and-test	Build and test (script)	2026-07-27T07:16:32.4588624Z      1>Project "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\SsmsSqlFormatter.sln" (1) is building "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter.Tests\SsmsSqlFormatter.Tests.csproj" (2) on node 2 (default targets).
-build-and-test	Build and test (script)	2026-07-27T07:16:32.4591868Z      2>GenerateBindingRedirects:
-build-and-test	Build and test (script)	2026-07-27T07:16:32.4592622Z        Skipping target "GenerateBindingRedirects" because all output files are up-to-date with respect to the input files.
-build-and-test	Build and test (script)	2026-07-27T07:16:32.4664723Z        GenerateTargetFrameworkMonikerAttribute:
-build-and-test	Build and test (script)	2026-07-27T07:16:32.4665714Z        Skipping target "GenerateTargetFrameworkMonikerAttribute" because all output files are up-to-date with respect to the input files.
-build-and-test	Build and test (script)	2026-07-27T07:16:32.4693761Z        CoreCompile:
-build-and-test	Build and test (script)	2026-07-27T07:16:32.4694536Z        Skipping target "CoreCompile" because all output files are up-to-date with respect to the input files.
-build-and-test	Build and test (script)	2026-07-27T07:16:32.4955858Z        _CopyOutOfDateSourceItemsToOutputDirectory:
-build-and-test	Build and test (script)	2026-07-27T07:16:32.4960562Z        Skipping target "_CopyOutOfDateSourceItemsToOutputDirectory" because all output files are up-to-date with respect to the input files.
-build-and-test	Build and test (script)	2026-07-27T07:16:32.4968506Z        _CopyAppConfigFile:
-build-and-test	Build and test (script)	2026-07-27T07:16:32.4970075Z        Skipping target "_CopyAppConfigFile" because all output files are up-to-date with respect to the input files.
-build-and-test	Build and test (script)	2026-07-27T07:16:32.4970690Z        CopyFilesToOutputDirectory:
-build-and-test	Build and test (script)	2026-07-27T07:16:32.4972192Z          SsmsSqlFormatter.Tests -> D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter.Tests\bin\Release\SsmsSqlFormatter.Tests.dll
-build-and-test	Build and test (script)	2026-07-27T07:16:32.5033174Z      2>Done Building Project "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter.Tests\SsmsSqlFormatter.Tests.csproj" (default targets).
-build-and-test	Build and test (script)	2026-07-27T07:16:32.5050493Z      1>Done Building Project "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\SsmsSqlFormatter.sln" (default targets).
-build-and-test	Build and test (script)	2026-07-27T07:16:32.5110964Z 
-build-and-test	Build and test (script)	2026-07-27T07:16:32.5111704Z Build succeeded.
-build-and-test	Build and test (script)	2026-07-27T07:16:32.5112093Z     0 Warning(s)
-build-and-test	Build and test (script)	2026-07-27T07:16:32.5112369Z     0 Error(s)
-build-and-test	Build and test (script)	2026-07-27T07:16:32.5112578Z 
-build-and-test	Build and test (script)	2026-07-27T07:16:32.5112697Z Time Elapsed 00:00:02.52
-build-and-test	Build and test (script)	2026-07-27T07:16:32.5262066Z Locating vstest.console.exe...
-build-and-test	Build and test (script)	2026-07-27T07:16:32.9158489Z ^[[31;1mWrite-Error: ^[[31;1mvswhere.exe not found^[[0m
-build-and-test	Build and test (script)	2026-07-27T07:16:33.0959609Z ##[error]Process completed with exit code 1.
+build-and-test	Build and test (script)	﻿2026-07-27T07:48:44.9402485Z ##[group]Run pwsh -NoProfile -ExecutionPolicy Bypass -File .\build.ps1 -Configuration Release
+build-and-test	Build and test (script)	2026-07-27T07:48:44.9403284Z ^[[36;1mpwsh -NoProfile -ExecutionPolicy Bypass -File .\build.ps1 -Configuration Release^[[0m
+build-and-test	Build and test (script)	2026-07-27T07:48:44.9465155Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+build-and-test	Build and test (script)	2026-07-27T07:48:44.9465505Z ##[endgroup]
+build-and-test	Build and test (script)	2026-07-27T07:48:46.2229148Z Build script starting (Configuration=Release)
+build-and-test	Build and test (script)	2026-07-27T07:48:46.2239815Z Restoring NuGet packages...
+build-and-test	Build and test (script)	2026-07-27T07:48:46.8702583Z MSBuild auto-detection: using msbuild version '18.7.8.30822' from 'C:\Program Files\Microsoft Visual Studio\18\Enterprise\MSBuild\Current\Bin'.
+build-and-test	Build and test (script)	2026-07-27T07:48:48.2548797Z Assets file has not changed. Skipping assets file writing. Path: D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\obj\project.assets.json
+build-and-test	Build and test (script)	2026-07-27T07:48:48.2551574Z Assets file has not changed. Skipping assets file writing. Path: D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter.Tests\obj\project.assets.json
+build-and-test	Build and test (script)	2026-07-27T07:48:48.2553713Z Restored D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\SsmsSqlFormatter.csproj (in 251 ms).
+build-and-test	Build and test (script)	2026-07-27T07:48:48.2555598Z Restored D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter.Tests\SsmsSqlFormatter.Tests.csproj (in 251 ms).
+build-and-test	Build and test (script)	2026-07-27T07:48:48.2608411Z 
+build-and-test	Build and test (script)	2026-07-27T07:48:48.2609801Z NuGet Config files used:
+build-and-test	Build and test (script)	2026-07-27T07:48:48.2610285Z     C:\Users\runneradmin\AppData\Roaming\NuGet\NuGet.Config
+build-and-test	Build and test (script)	2026-07-27T07:48:48.2611105Z     C:\Program Files (x86)\NuGet\Config\Microsoft.VisualStudio.FallbackLocation.config
+build-and-test	Build and test (script)	2026-07-27T07:48:48.2612054Z     C:\Program Files (x86)\NuGet\Config\Microsoft.VisualStudio.Offline.config
+build-and-test	Build and test (script)	2026-07-27T07:48:48.2612602Z 
+build-and-test	Build and test (script)	2026-07-27T07:48:48.2612729Z Feeds used:
+build-and-test	Build and test (script)	2026-07-27T07:48:48.2613128Z     C:\Program Files (x86)\Microsoft SDKs\NuGetPackages\
+build-and-test	Build and test (script)	2026-07-27T07:48:48.2613697Z     https://api.nuget.org/v3/index.json
+build-and-test	Build and test (script)	2026-07-27T07:48:48.2620926Z All projects are up-to-date for restore.
+build-and-test	Build and test (script)	2026-07-27T07:48:48.2832038Z Locating MSBuild...
+build-and-test	Build and test (script)	2026-07-27T07:48:48.3140304Z Using MSBuild: C:\Program Files\Microsoft Visual Studio\18\Enterprise\MSBuild\Current\Bin\MSBuild.exe
+build-and-test	Build and test (script)	2026-07-27T07:48:48.3146491Z Building solution...
+build-and-test	Build and test (script)	2026-07-27T07:48:48.3993935Z MSBuild version 18.7.8+1ac568fee for .NET Framework
+build-and-test	Build and test (script)	2026-07-27T07:48:48.4345180Z Build started 7/27/2026 7:48:48 AM.
+build-and-test	Build and test (script)	2026-07-27T07:48:48.4349084Z 
+build-and-test	Build and test (script)	2026-07-27T07:48:48.4832023Z      1>Project "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\SsmsSqlFormatter.sln" on node 1 (default targets).
+build-and-test	Build and test (script)	2026-07-27T07:48:48.4833269Z      1>ValidateSolutionConfiguration:
+build-and-test	Build and test (script)	2026-07-27T07:48:48.4834074Z          Building solution configuration "Release|Any CPU".
+build-and-test	Build and test (script)	2026-07-27T07:48:48.9450702Z      1>Project "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\SsmsSqlFormatter.sln" (1) is building "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\SsmsSqlFormatter.csproj" (4) on node 1 (default targets).
+build-and-test	Build and test (script)	2026-07-27T07:48:48.9451688Z      4>MainResourcesGeneration:
+build-and-test	Build and test (script)	2026-07-27T07:48:48.9452230Z        Skipping target "MainResourcesGeneration" because all output files are up-to-date with respect to the input files.
+build-and-test	Build and test (script)	2026-07-27T07:48:48.9626236Z        CoreResGen:
+build-and-test	Build and test (script)	2026-07-27T07:48:48.9626968Z          No resources are out of date with respect to their source files. Skipping resource generation.
+build-and-test	Build and test (script)	2026-07-27T07:48:49.1947644Z        VSCTCompile:
+build-and-test	Build and test (script)	2026-07-27T07:48:49.1948097Z          No out of date dependencies, skipping execution.
+build-and-test	Build and test (script)	2026-07-27T07:48:49.1949341Z        CreateMenuPkgDef:
+build-and-test	Build and test (script)	2026-07-27T07:48:49.1950126Z        Skipping target "CreateMenuPkgDef" because it has no outputs.
+build-and-test	Build and test (script)	2026-07-27T07:48:49.1950848Z        CheckCTOFileHasChanged:
+build-and-test	Build and test (script)	2026-07-27T07:48:49.1951716Z        Skipping target "CheckCTOFileHasChanged" because all output files are up-to-date with respect to the input files.
+build-and-test	Build and test (script)	2026-07-27T07:48:49.2258713Z        GenerateTargetFrameworkMonikerAttribute:
+build-and-test	Build and test (script)	2026-07-27T07:48:49.2259835Z        Skipping target "GenerateTargetFrameworkMonikerAttribute" because all output files are up-to-date with respect to the input files.
+build-and-test	Build and test (script)	2026-07-27T07:48:49.2338886Z        CoreCompile:
+build-and-test	Build and test (script)	2026-07-27T07:48:49.2339666Z        Skipping target "CoreCompile" because all output files are up-to-date with respect to the input files.
+build-and-test	Build and test (script)	2026-07-27T07:48:49.2348119Z        ZipProjects:
+build-and-test	Build and test (script)	2026-07-27T07:48:49.2348503Z          Zipping ProjectTemplates
+build-and-test	Build and test (script)	2026-07-27T07:48:49.2358843Z          SsmsSqlFormatter -> 
+build-and-test	Build and test (script)	2026-07-27T07:48:49.2360164Z        ZipItems:
+build-and-test	Build and test (script)	2026-07-27T07:48:49.2360522Z          Zipping ItemTemplates
+build-and-test	Build and test (script)	2026-07-27T07:48:49.2365254Z          SsmsSqlFormatter -> 
+build-and-test	Build and test (script)	2026-07-27T07:48:49.2438618Z        CopyFilesToOutputDirectory:
+build-and-test	Build and test (script)	2026-07-27T07:48:49.2439641Z          SsmsSqlFormatter -> D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\bin\Release\SsmsSqlFormatter.dll
+build-and-test	Build and test (script)	2026-07-27T07:48:49.2443853Z        GeneratePkgDef:
+build-and-test	Build and test (script)	2026-07-27T07:48:49.2444664Z        Skipping target "GeneratePkgDef" because all output files are up-to-date with respect to the input files.
+build-and-test	Build and test (script)	2026-07-27T07:48:49.2821958Z        CreateVsixContainer:
+build-and-test	Build and test (script)	2026-07-27T07:48:49.2822446Z          Creating VSIX Container...
+build-and-test	Build and test (script)	2026-07-27T07:48:49.2919566Z          C:\Users\runneradmin\.nuget\packages\microsoft.vssdk.buildtools\17.9.3168\tools\VSSDK\bin\VsixUtil.exe package -sourceManifest "obj\Release\extension.vsixmanifest" -outputPath "bin\Release\SsmsSqlFormatter.vsix" -files "obj\Release\\files.json" -compressionLevel "Normal" -is64BitBuild 
+build-and-test	Build and test (script)	2026-07-27T07:48:50.1733710Z          SsmsSqlFormatter -> D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\bin\Release\SsmsSqlFormatter.vsix
+build-and-test	Build and test (script)	2026-07-27T07:48:50.1780065Z        VsixCompatibilityAnalyzer:
+build-and-test	Build and test (script)	2026-07-27T07:48:50.1780577Z          Executing CompatibilityAnalyzer..
+build-and-test	Build and test (script)	2026-07-27T07:48:50.2703748Z        CopyVsixManifestFile:
+build-and-test	Build and test (script)	2026-07-27T07:48:50.2704986Z          Copying file from "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\obj\Release\extension.vsixmanifest" to "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\bin\Release\extension.vsixmanifest".
+build-and-test	Build and test (script)	2026-07-27T07:48:50.2711783Z          SsmsSqlFormatter -> D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\bin\Release\extension.vsixmanifest
+build-and-test	Build and test (script)	2026-07-27T07:48:50.2712793Z        CreateMenuPkgDef:
+build-and-test	Build and test (script)	2026-07-27T07:48:50.2713319Z        Skipping target "CreateMenuPkgDef" because it has no outputs.
+build-and-test	Build and test (script)	2026-07-27T07:48:50.2761132Z        IncrementalClean:
+build-and-test	Build and test (script)	2026-07-27T07:48:50.2762019Z          Deleting file "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\obj\Release\VSCT.read.1.tlog".
+build-and-test	Build and test (script)	2026-07-27T07:48:50.2763445Z          Deleting file "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\obj\Release\VSCT.write.1.tlog".
+build-and-test	Build and test (script)	2026-07-27T07:48:50.2764956Z          Deleting file "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\obj\Release\_EmptyResource.resources.original".
+build-and-test	Build and test (script)	2026-07-27T07:48:50.2804271Z      4>Done Building Project "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter\SsmsSqlFormatter.csproj" (default targets).
+build-and-test	Build and test (script)	2026-07-27T07:48:50.3634823Z      1>Project "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\SsmsSqlFormatter.sln" (1) is building "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\tools\FormatterBench\FormatterBench.csproj" (2) on node 2 (default targets).
+build-and-test	Build and test (script)	2026-07-27T07:48:50.3643990Z      2>GenerateTargetFrameworkMonikerAttribute:
+build-and-test	Build and test (script)	2026-07-27T07:48:50.3648323Z        Skipping target "GenerateTargetFrameworkMonikerAttribute" because all output files are up-to-date with respect to the input files.
+build-and-test	Build and test (script)	2026-07-27T07:48:50.3654213Z        CoreCompile:
+build-and-test	Build and test (script)	2026-07-27T07:48:50.3658927Z        Skipping target "CoreCompile" because all output files are up-to-date with respect to the input files.
+build-and-test	Build and test (script)	2026-07-27T07:48:50.3862340Z        CopyFilesToOutputDirectory:
+build-and-test	Build and test (script)	2026-07-27T07:48:50.3865795Z          FormatterBench -> D:\a\SSMSSQLFormatter\SSMSSQLFormatter\tools\FormatterBench\bin\Release\FormatterBench.exe
+build-and-test	Build and test (script)	2026-07-27T07:48:50.3910653Z      2>Done Building Project "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\tools\FormatterBench\FormatterBench.csproj" (default targets).
+build-and-test	Build and test (script)	2026-07-27T07:48:50.8002194Z      1>Project "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\SsmsSqlFormatter.sln" (1) is building "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter.Tests\SsmsSqlFormatter.Tests.csproj" (3) on node 3 (default targets).
+build-and-test	Build and test (script)	2026-07-27T07:48:50.8005050Z      3>GenerateBindingRedirects:
+build-and-test	Build and test (script)	2026-07-27T07:48:50.8005889Z        Skipping target "GenerateBindingRedirects" because all output files are up-to-date with respect to the input files.
+build-and-test	Build and test (script)	2026-07-27T07:48:50.8076335Z        GenerateTargetFrameworkMonikerAttribute:
+build-and-test	Build and test (script)	2026-07-27T07:48:50.8077238Z        Skipping target "GenerateTargetFrameworkMonikerAttribute" because all output files are up-to-date with respect to the input files.
+build-and-test	Build and test (script)	2026-07-27T07:48:50.8103138Z        CoreCompile:
+build-and-test	Build and test (script)	2026-07-27T07:48:50.8103879Z        Skipping target "CoreCompile" because all output files are up-to-date with respect to the input files.
+build-and-test	Build and test (script)	2026-07-27T07:48:50.8313647Z        _CopyOutOfDateSourceItemsToOutputDirectory:
+build-and-test	Build and test (script)	2026-07-27T07:48:50.8318598Z        Skipping target "_CopyOutOfDateSourceItemsToOutputDirectory" because all output files are up-to-date with respect to the input files.
+build-and-test	Build and test (script)	2026-07-27T07:48:50.8324135Z        _CopyAppConfigFile:
+build-and-test	Build and test (script)	2026-07-27T07:48:50.8325039Z        Skipping target "_CopyAppConfigFile" because all output files are up-to-date with respect to the input files.
+build-and-test	Build and test (script)	2026-07-27T07:48:50.8326695Z        CopyFilesToOutputDirectory:
+build-and-test	Build and test (script)	2026-07-27T07:48:50.8329374Z          SsmsSqlFormatter.Tests -> D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter.Tests\bin\Release\SsmsSqlFormatter.Tests.dll
+build-and-test	Build and test (script)	2026-07-27T07:48:50.8386382Z      3>Done Building Project "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter.Tests\SsmsSqlFormatter.Tests.csproj" (default targets).
+build-and-test	Build and test (script)	2026-07-27T07:48:50.8402046Z      1>Done Building Project "D:\a\SSMSSQLFormatter\SSMSSQLFormatter\SsmsSqlFormatter.sln" (default targets).
+build-and-test	Build and test (script)	2026-07-27T07:48:50.8524338Z 
+build-and-test	Build and test (script)	2026-07-27T07:48:50.8524904Z Build succeeded.
+build-and-test	Build and test (script)	2026-07-27T07:48:50.8525569Z     0 Warning(s)
+build-and-test	Build and test (script)	2026-07-27T07:48:50.8525796Z     0 Error(s)
+build-and-test	Build and test (script)	2026-07-27T07:48:50.8525939Z 
+build-and-test	Build and test (script)	2026-07-27T07:48:50.8526016Z Time Elapsed 00:00:02.41
+build-and-test	Build and test (script)	2026-07-27T07:48:50.8672272Z Locating vstest.console.exe...
+build-and-test	Build and test (script)	2026-07-27T07:48:51.0396012Z Running tests: src\SsmsSqlFormatter.Tests\bin\Release\SsmsSqlFormatter.Tests.dll
+build-and-test	Build and test (script)	2026-07-27T07:48:51.2174239Z VSTest version 18.7.0 (x64)
+build-and-test	Build and test (script)	2026-07-27T07:48:51.2195944Z 
+build-and-test	Build and test (script)	2026-07-27T07:48:53.1267227Z Starting test execution, please wait...
+build-and-test	Build and test (script)	2026-07-27T07:48:53.3094006Z A total of 1 test files matched the specified pattern.
+build-and-test	Build and test (script)	2026-07-27T07:48:53.4895755Z NUnit Adapter 4.4.0.0: Test execution started
+build-and-test	Build and test (script)	2026-07-27T07:48:53.6275539Z Running all tests in D:\a\SSMSSQLFormatter\SSMSSQLFormatter\src\SsmsSqlFormatter.Tests\bin\Release\SsmsSqlFormatter.Tests.dll
+build-and-test	Build and test (script)	2026-07-27T07:48:54.3675873Z    NUnit3TestExecutor discovered 9 of 9 NUnit test cases using Current Discovery mode, Non-Explicit run
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6033250Z NUnit Adapter 4.4.0.0: Test execution complete
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6398765Z   Failed BlankLinesBetweenStatements_AppliesSpacing [125 ms]
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6415963Z   Error Message:
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6418027Z    System.IO.FileNotFoundException : Could not load file or assembly 'Microsoft.VisualStudio.Shell.15.0, Version=17.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' or one of its dependencies. The system cannot find the file specified.
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6419869Z   Stack Trace:
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6420701Z      at SsmsSqlFormatter.Tests.ScriptDomFormatterTests.BlankLinesBetweenStatements_AppliesSpacing()
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6421513Z 
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6422904Z   Failed DescribeStyle_RespectsIndentSize [1 ms]
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6424183Z   Error Message:
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6425732Z    System.IO.FileNotFoundException : Could not load file or assembly 'Microsoft.VisualStudio.Shell.15.0, Version=17.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' or one of its dependencies. The system cannot find the file specified.
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6427550Z   Stack Trace:
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6428251Z      at SsmsSqlFormatter.Tests.ScriptDomFormatterTests.DescribeStyle_RespectsIndentSize()
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6429320Z 
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6429560Z   Failed Format_SimpleSelect_ReturnsSuccess [< 1 ms]
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6430069Z   Error Message:
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6431685Z    System.IO.FileNotFoundException : Could not load file or assembly 'Microsoft.VisualStudio.Shell.15.0, Version=17.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' or one of its dependencies. The system cannot find the file specified.
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6433461Z   Stack Trace:
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6434135Z      at SsmsSqlFormatter.Tests.ScriptDomFormatterTests.Format_SimpleSelect_ReturnsSuccess()
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6434824Z 
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6435099Z   Failed IdentifierCasing_FunctionsAndTypesAreRecased [< 1 ms]
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6435645Z   Error Message:
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6437232Z    System.IO.FileNotFoundException : Could not load file or assembly 'Microsoft.VisualStudio.Shell.15.0, Version=17.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' or one of its dependencies. The system cannot find the file specified.
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6438958Z   Stack Trace:
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6439724Z      at SsmsSqlFormatter.Tests.ScriptDomFormatterTests.IdentifierCasing_FunctionsAndTypesAreRecased()
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6440856Z 
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6441112Z   Failed LeadingCommas_MovesCommasToLineStart [< 1 ms]
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6441627Z   Error Message:
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6443218Z    System.IO.FileNotFoundException : Could not load file or assembly 'Microsoft.VisualStudio.Shell.15.0, Version=17.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' or one of its dependencies. The system cannot find the file specified.
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6445247Z   Stack Trace:
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6445980Z      at SsmsSqlFormatter.Tests.ScriptDomFormatterTests.LeadingCommas_MovesCommasToLineStart()
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6446718Z 
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6446972Z   Failed NormalizeGoSpacing_RespectsBlankLines [< 1 ms]
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6447497Z   Error Message:
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6449061Z    System.IO.FileNotFoundException : Could not load file or assembly 'Microsoft.VisualStudio.Shell.15.0, Version=17.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' or one of its dependencies. The system cannot find the file specified.
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6450774Z   Stack Trace:
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6451492Z      at SsmsSqlFormatter.Tests.ScriptDomFormatterTests.NormalizeGoSpacing_RespectsBlankLines()
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6452224Z 
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6452448Z   Failed PreserveComments_ReinjectsComments [< 1 ms]
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6452928Z   Error Message:
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6454504Z    System.IO.FileNotFoundException : Could not load file or assembly 'Microsoft.VisualStudio.Shell.15.0, Version=17.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' or one of its dependencies. The system cannot find the file specified.
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6456229Z   Stack Trace:
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6456920Z      at SsmsSqlFormatter.Tests.ScriptDomFormatterTests.PreserveComments_ReinjectsComments()
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6457655Z 
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6457869Z   Failed ReindentSubqueries_AddsIndentation [< 1 ms]
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6458360Z   Error Message:
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6459928Z    System.IO.FileNotFoundException : Could not load file or assembly 'Microsoft.VisualStudio.Shell.15.0, Version=17.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' or one of its dependencies. The system cannot find the file specified.
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6461614Z   Stack Trace:
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6462334Z      at SsmsSqlFormatter.Tests.ScriptDomFormatterTests.ReindentSubqueries_AddsIndentation()
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6463074Z 
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6463376Z   Failed UseTabsForIndentation_ConvertsIndentsToTabs [< 1 ms]
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6464383Z   Error Message:
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6465976Z    System.IO.FileNotFoundException : Could not load file or assembly 'Microsoft.VisualStudio.Shell.15.0, Version=17.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a' or one of its dependencies. The system cannot find the file specified.
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6467996Z   Stack Trace:
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6468799Z      at SsmsSqlFormatter.Tests.ScriptDomFormatterTests.UseTabsForIndentation_ConvertsIndentsToTabs()
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6469613Z 
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6512217Z 
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6593814Z Test Run Failed.
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6594866Z Total tests: 9
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6596013Z      Failed: 9
+build-and-test	Build and test (script)	2026-07-27T07:48:54.6607318Z  Total time: 1.3273 Seconds
+build-and-test	Build and test (script)	2026-07-27T07:48:55.0802111Z ^[[31;1mWrite-Error: ^[[31;1mTests failed^[[0m
+build-and-test	Build and test (script)	2026-07-27T07:48:55.2690140Z ##[error]Process completed with exit code 1.
