@@ -9,8 +9,10 @@ $vsix = "src\SsmsSqlFormatter\source.extension.vsixmanifest"
 if (-not (Test-Path $vsix)) { Write-Error "VSIX manifest not found: $vsix"; exit 2 }
 
 [xml]$doc = Get-Content $vsix
-$ns = $doc.DocumentElement.NamespaceURI
-$identity = $doc.SelectSingleNode("//d:Identity", @{d=$ns})
+$nsUri = $doc.DocumentElement.NamespaceURI
+$nsMgr = New-Object System.Xml.XmlNamespaceManager($doc.NameTable)
+$nsMgr.AddNamespace("d", $nsUri)
+$identity = $doc.SelectSingleNode("//d:Identity", $nsMgr)
 if ($identity -ne $null) {
     $identity.Version = $Version
     $doc.Save($vsix)
@@ -22,8 +24,8 @@ $asm = "src\SsmsSqlFormatter\Properties\AssemblyInfo.cs"
 if (-not (Test-Path $asm)) { Write-Error "AssemblyInfo not found: $asm"; exit 4 }
 
 $text = Get-Content $asm -Raw
-$text = [System.Text.RegularExpressions.Regex]::Replace($text, 'AssemblyVersion\("[^"]+"\)', "AssemblyVersion(\"$Version\")")
-$text = [System.Text.RegularExpressions.Regex]::Replace($text, 'AssemblyFileVersion\("[^"]+"\)', "AssemblyFileVersion(\"$Version\")")
+$text = [System.Text.RegularExpressions.Regex]::Replace($text, 'AssemblyVersion\("[^"]+"\)', "AssemblyVersion(`"$Version`")")
+$text = [System.Text.RegularExpressions.Regex]::Replace($text, 'AssemblyFileVersion\("[^"]+"\)', "AssemblyFileVersion(`"$Version`")")
 Set-Content -Path $asm -Value $text -Encoding UTF8
 Write-Host "Updated AssemblyInfo versions to $Version"
 
