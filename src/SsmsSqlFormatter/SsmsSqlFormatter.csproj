@@ -65,7 +65,7 @@
     <Reference Include="System.Xaml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="FormatSqlCommand.cs" />
+  <Compile Include="FormatSqlCommand.cs" />
     <Compile Include="Formatting\AiFormatter.cs" />
     <Compile Include="Formatting\CsvWriter.cs" />
     <Compile Include="Formatting\ExcelClipboard.cs" />
@@ -76,6 +76,15 @@
     <Compile Include="Options\GeneralOptions.cs" />
     <Compile Include="Options\HelpOptions.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="PreviewWindow.xaml.cs">
+      <DependentUpon>PreviewWindow.xaml</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Include="PreviewWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Compile Include="SsmsSqlFormatterPackage.cs" />
   </ItemGroup>
   <ItemGroup>

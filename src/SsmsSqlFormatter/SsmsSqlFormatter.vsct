@@ -87,6 +87,14 @@
           <ToolTipText>Load formatter and export settings from a JSON file</ToolTipText>
         </Strings>
       </Button>
+      <Button guid="guidSsmsSqlFormatterCmdSet" id="cmdidPreviewFormat" priority="0x0122" type="Button">
+        <Parent guid="guidSsmsSqlFormatterCmdSet" id="ToolsMenuGroup" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Preview Format</ButtonText>
+          <ToolTipText>Show a preview of the formatted SQL without replacing the document</ToolTipText>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
@@ -95,6 +103,7 @@
     <KeyBinding guid="guidSsmsSqlFormatterCmdSet" id="cmdidFormatSql" editor="guidVSStd97" key1="F" mod1="Control Shift Alt" />
     <KeyBinding guid="guidSsmsSqlFormatterCmdSet" id="cmdidCopyResultsExcel" editor="guidVSStd97" key1="X" mod1="Control Shift Alt" />
     <KeyBinding guid="guidSsmsSqlFormatterCmdSet" id="cmdidAddResultsSheet" editor="guidVSStd97" key1="A" mod1="Control Shift Alt" />
+    <KeyBinding guid="guidSsmsSqlFormatterCmdSet" id="cmdidPreviewFormat" editor="guidVSStd97" key1="P" mod1="Control Shift Alt" />
   </KeyBindings>
 
   <Symbols>
@@ -111,6 +120,7 @@
       <IDSymbol name="cmdidAddResultsSheet" value="0x0106" />
       <IDSymbol name="cmdidExportSettings" value="0x0107" />
       <IDSymbol name="cmdidImportSettings" value="0x0108" />
+      <IDSymbol name="cmdidPreviewFormat" value="0x0109" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>

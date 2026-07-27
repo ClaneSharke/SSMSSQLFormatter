@@ -26,6 +26,7 @@ namespace SsmsSqlFormatter
         public const int AddSheetCommandId = 0x0106;
         public const int ExportSettingsCommandId = 0x0107;
         public const int ImportSettingsCommandId = 0x0108;
+        public const int PreviewFormatCommandId = 0x0109;
 
         private readonly SsmsSqlFormatterPackage _package;
 
@@ -41,6 +42,7 @@ namespace SsmsSqlFormatter
             commandService.AddCommand(new MenuCommand(ExecuteAddSheet, new CommandID(CommandSet, AddSheetCommandId)));
             commandService.AddCommand(new MenuCommand(ExecuteExportSettings, new CommandID(CommandSet, ExportSettingsCommandId)));
             commandService.AddCommand(new MenuCommand(ExecuteImportSettings, new CommandID(CommandSet, ImportSettingsCommandId)));
+            commandService.AddCommand(new MenuCommand(ExecutePreviewFormat, new CommandID(CommandSet, PreviewFormatCommandId)));
         }
 
         // Result sets queued by "Add Results as Sheet", exported together as one workbook.
@@ -626,6 +628,108 @@ namespace SsmsSqlFormatter
                     ShowError("Unexpected error: " + ex.Message);
                 }
             });
+        }
+
+        private void ExecutePreviewFormat(object sender, EventArgs e)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            _ = _package.JoinableTaskFactory.RunAsync(async () =>
+            {
+                try
+                {
+                    await ExecutePreviewCoreAsync();
+                }
+                catch (Exception ex)
+                {
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                    ShowError("Unexpected error: " + ex.Message);
+                }
+            });
+        }
+
+        private async Task ExecutePreviewCoreAsync()
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            var dte = (DTE2)await _package.GetServiceAsync(typeof(DTE));
+            var doc = dte?.ActiveDocument;
+            var textDoc = doc?.Object("TextDocument") as TextDocument;
+            if (textDoc == null)
+            {
+                ShowInfo("Open a query window first.");
+                return;
+            }
+
+            var selection = textDoc.Selection;
+            bool useSelection = selection != null && !selection.IsEmpty;
+            string original = useSelection
+                ? selection.Text
+                : textDoc.StartPoint.CreateEditPoint().GetText(textDoc.EndPoint);
+
+            if (string.IsNullOrWhiteSpace(original))
+            {
+                ShowInfo("Nothing to format.");
+                return;
+            }
+
+            var general = _package.GetGeneralOptions();
+            var ai = _package.GetAiOptions();
+
+            FormatResult result;
+
+            if (general.Engine == FormatterEngine.Ai)
+            {
+                SetStatus(dte, "Formatting with AI (preview)…");
+                result = await AiFormatter.FormatAsync(original, general, ai).ConfigureAwait(true);
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            }
+            else
+            {
+                result = ScriptDomFormatter.Format(original, general);
+            }
+
+            if (!result.Success)
+            {
+                ShowError(result.ErrorMessage ?? "Formatting failed.");
+                SetStatus(dte, "SQL formatting failed.");
+                return;
+            }
+
+            // Show preview window
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            var preview = new PreviewWindow(result.FormattedSql);
+                var applied = preview.ShowDialog() == true;
+
+            if (applied)
+            {
+                    // Apply the formatted SQL (use edited preview text if changed)
+                    var toApply = preview.FormattedText ?? result.FormattedSql;
+                dte.UndoContext.Open("Format T-SQL Script (Preview)");
+                try
+                {
+                    if (useSelection)
+                    {
+                            selection.Insert(toApply,
+                            (int)vsInsertFlags.vsInsertFlagsContainNewText);
+                    }
+                    else
+                    {
+                        var start = textDoc.StartPoint.CreateEditPoint();
+                            start.ReplaceText(textDoc.EndPoint, toApply,
+                            (int)vsEPReplaceTextOptions.vsEPReplaceTextKeepMarkers);
+                    }
+                }
+                finally
+                {
+                    dte.UndoContext.Close();
+                }
+
+                SetStatus(dte, "Formatted (applied from preview).");
+            }
+            else
+            {
+                SetStatus(dte, "Preview closed without applying.");
+            }
         }
 
         private async Task ExecuteCoreAsync()

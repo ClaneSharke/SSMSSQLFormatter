@@ -320,6 +320,11 @@ namespace SsmsSqlFormatter.Options
         public bool PreserveComments { get; set; } = true;
 
         [Category("6. Safety")]
+        [DisplayName("Enable formatting cache")]
+        [Description("When enabled, identical scripts formatted with the same options are cached in-memory to speed repeated formatting. Useful when formatting frequently-repeated scripts. Default = false.")]
+        public bool EnableFormattingCache { get; set; } = false;
+
+        [Category("6. Safety")]
         [DisplayName("Warn when script contains comments")]
         [Description("Only applies when 'Preserve comments' is OFF: warns that reformatting may drop or move comments and offers the chance to cancel.")]
         public bool WarnOnComments { get; set; } = true;

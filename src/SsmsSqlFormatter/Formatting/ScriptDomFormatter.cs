@@ -4,6 +4,10 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
+using System.Runtime.Caching;
+using System.Security.Cryptography;
+using System.Reflection;
+using Newtonsoft.Json;
 using SsmsSqlFormatter.Options;
 
 namespace SsmsSqlFormatter.Formatting
@@ -22,8 +26,33 @@ namespace SsmsSqlFormatter.Formatting
     /// </summary>
     public static class ScriptDomFormatter
     {
+        private static readonly MemoryCache _formatCache = MemoryCache.Default;
+        private static readonly object _cacheLock = new object();
         public static FormatResult Format(string sql, GeneralOptions options)
         {
+            if (options != null && options.EnableFormattingCache && !string.IsNullOrEmpty(sql))
+            {
+                try
+                {
+                    var sig = ComputeSignature(sql, options);
+                    if (_formatCache.Contains(sig))
+                    {
+                        var cached = _formatCache.Get(sig) as FormatResult;
+                        if (cached != null)
+                        {
+                            return new FormatResult
+                            {
+                                Success = cached.Success,
+                                FormattedSql = cached.FormattedSql,
+                                ErrorMessage = cached.ErrorMessage,
+                                CommentCount = cached.CommentCount
+                            };
+                        }
+                    }
+                }
+                catch { /* caching best-effort */ }
+            }
+
             var result = new FormatResult();
             try
             {
@@ -63,6 +92,24 @@ namespace SsmsSqlFormatter.Formatting
 
                 result.FormattedSql = formatted;
                 result.Success = true;
+
+                if (options != null && options.EnableFormattingCache && !string.IsNullOrEmpty(sql))
+                {
+                    try
+                    {
+                        var sig = ComputeSignature(sql, options);
+                        var policy = new CacheItemPolicy { SlidingExpiration = TimeSpan.FromMinutes(30) };
+                        _formatCache.Set(sig, new FormatResult
+                        {
+                            Success = result.Success,
+                            FormattedSql = result.FormattedSql,
+                            ErrorMessage = result.ErrorMessage,
+                            CommentCount = result.CommentCount
+                        }, policy);
+                    }
+                    catch { /* ignore cache errors */ }
+                }
+
                 return result;
             }
             catch (Exception ex)
@@ -156,6 +203,30 @@ namespace SsmsSqlFormatter.Formatting
             }
 
             return g;
+        }
+
+        private static string ComputeSignature(string sql, GeneralOptions o)
+        {
+            // Build a stable signature from the SQL and the relevant option properties.
+            var sb = new StringBuilder();
+            sb.Append(sql).Append("||");
+            foreach (var prop in typeof(GeneralOptions).GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                if (!prop.CanRead) continue;
+                object val;
+                try { val = prop.GetValue(o); } catch { val = null; }
+                if (val is System.Drawing.Color c) sb.Append(prop.Name).Append("=").Append(c.ToArgb()).Append(";");
+                else if (val != null) sb.Append(prop.Name).Append("=").Append(val.ToString()).Append(";");
+                else sb.Append(prop.Name).Append("=null;");
+            }
+
+            // Hash the signature to keep keys small
+            using (var sha = SHA256.Create())
+            {
+                var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+                var hash = sha.ComputeHash(bytes);
+                return Convert.ToBase64String(hash);
+            }
         }
 
         private class OrigItem
