@@ -679,13 +679,46 @@ namespace SsmsSqlFormatter
 
             if (general.Engine == FormatterEngine.Ai)
             {
+                if (ai.ConfirmBeforeSending)
+                {
+                    var confirm = MessageBox.Show(
+                        "Send this script to the Anthropic API for formatting?\r\n\r\n" +
+                        "The script text (including any literals it contains) will leave this machine.",
+                        "SQL Formatter — AI engine",
+                        MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    if (confirm != MessageBoxResult.Yes) return;
+                }
+
                 SetStatus(dte, "Formatting with AI (preview)…");
                 result = await AiFormatter.FormatAsync(original, general, ai).ConfigureAwait(true);
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+                if (!result.Success && ai.FallbackToRuleBased)
+                {
+                    SetStatus(dte, "AI failed, falling back to rule-based formatter…");
+                    var fallback = ScriptDomFormatter.Format(original, general);
+                    if (fallback.Success)
+                    {
+                        fallback.ErrorMessage = result.ErrorMessage; // remember why AI failed
+                        result = fallback;
+                    }
+                }
             }
             else
             {
                 result = ScriptDomFormatter.Format(original, general);
+
+                if (result.Success && result.CommentCount > 0 && general.WarnOnComments && !general.PreserveComments)
+                {
+                    var proceed = MessageBox.Show(
+                        $"This script contains {result.CommentCount} comment(s). The rule-based engine may drop " +
+                        "or move comments when reformatting.\r\n\r\n" +
+                        "Continue anyway? (Tip: the AI engine preserves comments — switch under " +
+                        "Tools > Options > Format T-SQL Script.)",
+                        "SQL Formatter",
+                        MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                    if (proceed != MessageBoxResult.Yes) return;
+                }
             }
 
             if (!result.Success)
