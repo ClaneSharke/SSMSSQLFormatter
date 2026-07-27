@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag to build and attach the VSIX to'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - name: Determine tag
+        id: tag
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.inputs.tag }}"
+          if ([string]::IsNullOrEmpty($tag)) { $tag = "${{ github.ref_name }}" }
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet
+        uses: nuget/setup-nuget@v2
+
+      - name: Restore NuGet packages
+        run: nuget restore SsmsSqlFormatter.sln
+
+      - name: Build solution (Release)
+        run: msbuild SsmsSqlFormatter.sln /p:Configuration=Release /m
+
+      - name: Verify VSIX exists
+        shell: pwsh
+        run: |
+          $vsix = "src/SsmsSqlFormatter/bin/Release/SsmsSqlFormatter.vsix"
+          if (-not (Test-Path $vsix)) {
+            Write-Error "VSIX not found at expected path: $vsix"
+            exit 1
+          }
+
+      - name: Upload VSIX to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          files: src/SsmsSqlFormatter/bin/Release/SsmsSqlFormatter.vsix
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
