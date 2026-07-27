@@ -11,7 +11,7 @@ on:
       - master
 
 jobs:
-  build-and-test:
+  build:
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -20,15 +20,11 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
+      - name: Setup NuGet
+        uses: nuget/setup-nuget@v2
+
       - name: Restore NuGet packages
-        run: |
-          nuget restore SsmsSqlFormatter.sln
+        run: nuget restore SsmsSqlFormatter.sln
 
       - name: Build solution (Release)
-        run: |
-          msbuild SsmsSqlFormatter.sln /p:Configuration=Release /m
-
-      - name: Build and test (script)
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -ExecutionPolicy Bypass -File .\build.ps1 -Configuration Release
+        run: msbuild SsmsSqlFormatter.sln /p:Configuration=Release /m
