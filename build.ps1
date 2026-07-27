@@ -5,7 +5,7 @@ param(
 Write-Host "Build script starting (Configuration=$Configuration)"
 
 function Find-VsWhere {
-    $candidates = @("$env:ProgramFiles(x86)\Microsoft Visual Studio\Installer\vswhere.exe", "$env:ProgramFiles\Microsoft Visual Studio\Installer\vswhere.exe")
+    $candidates = @("${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe", "$env:ProgramFiles\Microsoft Visual Studio\Installer\vswhere.exe")
     foreach ($p in $candidates) {
         if (Test-Path $p) { return $p }
     }
