@@ -1,4 +1,4 @@
-# v2.3.2 — VSIX manifest packaging fix
+# v2.3.3 — VSIX manifest packaging fix
 
 **New in this release**
 
