@@ -6,6 +6,9 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <RootNamespace>FormatterBench</RootNamespace>
   </PropertyGroup>
+  <PropertyGroup>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\SsmsSqlFormatter\SsmsSqlFormatter.csproj" />
   </ItemGroup>
