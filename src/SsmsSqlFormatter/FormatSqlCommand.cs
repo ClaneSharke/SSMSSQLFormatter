@@ -27,6 +27,7 @@ namespace SsmsSqlFormatter
         public const int ExportSettingsCommandId = 0x0107;
         public const int ImportSettingsCommandId = 0x0108;
         public const int PreviewFormatCommandId = 0x0109;
+        public const int BatchFormatCommandId = 0x010A;
 
         private readonly SsmsSqlFormatterPackage _package;
 
@@ -43,6 +44,7 @@ namespace SsmsSqlFormatter
             commandService.AddCommand(new MenuCommand(ExecuteExportSettings, new CommandID(CommandSet, ExportSettingsCommandId)));
             commandService.AddCommand(new MenuCommand(ExecuteImportSettings, new CommandID(CommandSet, ImportSettingsCommandId)));
             commandService.AddCommand(new MenuCommand(ExecutePreviewFormat, new CommandID(CommandSet, PreviewFormatCommandId)));
+            commandService.AddCommand(new MenuCommand(ExecuteBatchFormat, new CommandID(CommandSet, BatchFormatCommandId)));
         }
 
         // Result sets queued by "Add Results as Sheet", exported together as one workbook.
@@ -141,7 +143,7 @@ namespace SsmsSqlFormatter
         }
 
         /// <summary>Tab-separated or multi-line content - the shape of a grid copy.</summary>
-        private static bool LooksLikeGridData(string s)
+        internal static bool LooksLikeGridData(string s)
         {
             if (string.IsNullOrWhiteSpace(s)) return false;
             if (s.IndexOf('\t') >= 0) return true;
@@ -402,7 +404,7 @@ namespace SsmsSqlFormatter
         }
 
 
-        private static string Hex(System.Drawing.Color c) =>
+        internal static string Hex(System.Drawing.Color c) =>
             "#" + c.R.ToString("X2") + c.G.ToString("X2") + c.B.ToString("X2");
 
         /// <summary>
@@ -569,6 +571,99 @@ namespace SsmsSqlFormatter
         }
 
 
+        /// <summary>Outcome of a batch-format run: how many files changed, how many were already formatted, and any that couldn't be processed.</summary>
+        internal class BatchFormatResult
+        {
+            public int FormattedCount;
+            public int UnchangedCount;
+            public System.Collections.Generic.List<string> Failures = new System.Collections.Generic.List<string>();
+        }
+
+        /// <summary>
+        /// Formats each file on disk in place using the rule-based engine (never AI -
+        /// this must run unattended across many files with no confirmation prompt or
+        /// network call per file). A file's original encoding (including BOM) is
+        /// detected and preserved. A file that fails to parse is left completely
+        /// untouched and reported back, exactly like the single-file Format command.
+        /// </summary>
+        internal static BatchFormatResult FormatFiles(System.Collections.Generic.IEnumerable<string> paths, Options.GeneralOptions general)
+        {
+            var summary = new BatchFormatResult();
+            foreach (var path in paths)
+            {
+                try
+                {
+                    string original;
+                    System.Text.Encoding encoding;
+                    using (var reader = new System.IO.StreamReader(path, System.Text.Encoding.UTF8, true))
+                    {
+                        original = reader.ReadToEnd();
+                        encoding = reader.CurrentEncoding;
+                    }
+
+                    var result = Formatting.ScriptDomFormatter.Format(original, general);
+                    if (!result.Success)
+                    {
+                        summary.Failures.Add(System.IO.Path.GetFileName(path) + ": " + result.ErrorMessage);
+                        continue;
+                    }
+
+                    if (result.FormattedSql == original)
+                    {
+                        summary.UnchangedCount++;
+                        continue;
+                    }
+
+                    System.IO.File.WriteAllText(path, result.FormattedSql, encoding);
+                    summary.FormattedCount++;
+                }
+                catch (Exception ex)
+                {
+                    summary.Failures.Add(System.IO.Path.GetFileName(path) + ": " + ex.Message);
+                }
+            }
+            return summary;
+        }
+
+        private void ExecuteBatchFormat(object sender, EventArgs e)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            try
+            {
+                string[] paths;
+                using (var dialog = new System.Windows.Forms.OpenFileDialog())
+                {
+                    dialog.Title = "Select .sql files to format";
+                    dialog.Filter = "SQL scripts (*.sql)|*.sql|All files (*.*)|*.*";
+                    dialog.Multiselect = true;
+                    if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+                    paths = dialog.FileNames;
+                }
+                if (paths == null || paths.Length == 0) return;
+
+                var confirm = MessageBox.Show(
+                    $"This will format {paths.Length} file(s) directly on disk, overwriting each in place.\r\n\r\n" +
+                    "Files that fail to parse are left untouched. Close any of these files first if they're " +
+                    "open with unsaved changes, so the editor doesn't end up out of sync with the file on disk.\r\n\r\n" +
+                    "Continue?",
+                    "Format Files", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (confirm != MessageBoxResult.Yes) return;
+
+                var general = _package.GetGeneralOptions();
+                var summary = FormatFiles(paths, general);
+
+                var message = $"Formatted {summary.FormattedCount} of {paths.Length} file(s). " +
+                              $"{summary.UnchangedCount} already matched the current style.";
+                if (summary.Failures.Count > 0)
+                    message += $"\r\n\r\n{summary.Failures.Count} file(s) were skipped:\r\n" + string.Join("\r\n", summary.Failures);
+                ShowInfo(message);
+            }
+            catch (Exception ex)
+            {
+                ShowError("Batch format failed: " + ex.Message);
+            }
+        }
+
         private void ExecuteHelp(object sender, EventArgs e)
         {
             var answer = MessageBox.Show(
@@ -578,10 +673,13 @@ namespace SsmsSqlFormatter
                 "Formats the selection if there is one, otherwise the whole document.\r\n" +
                 "Ctrl+Z undoes the entire format in one step.\r\n" +
                 "\r\n" +
+                "Format Files...:  Tools menu. Formats one or more .sql files on disk in place\r\n" +
+                "using the rule-based engine. A file that fails to parse is left untouched.\r\n" +
+                "\r\n" +
                 "Settings:  Tools > Options > Format T-SQL Script\r\n" +
                 "  • General — engine, Classic/Modern/Custom preset, casing, indentation,\r\n" +
                 "    comma placement, subquery re-indent, blank lines around GO,\r\n" +
-                "    comment preservation.\r\n" +
+                "    comment preservation, format on save.\r\n" +
                 "  • AI Engine — optional Anthropic API key and custom style instructions.\r\n" +
                 "  • Help — this information inside the options dialog.\r\n" +
                 "\r\n" +
@@ -730,7 +828,7 @@ namespace SsmsSqlFormatter
 
             // Show preview window
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-            var preview = new PreviewWindow(result.FormattedSql);
+            var preview = new PreviewWindow(original, result.FormattedSql);
                 var applied = preview.ShowDialog() == true;
 
             if (applied)

@@ -91,7 +91,7 @@ namespace SsmsSqlFormatter.Formatting
             }
         }
 
-        private static string BuildSystemPrompt(GeneralOptions general, AiOptions ai)
+        internal static string BuildSystemPrompt(GeneralOptions general, AiOptions ai)
         {
             var sb = new StringBuilder();
             sb.AppendLine("You are a T-SQL code formatter. You receive a T-SQL script and return the SAME script, reformatted.");
@@ -117,7 +117,7 @@ namespace SsmsSqlFormatter.Formatting
             return sb.ToString();
         }
 
-        private static string ParseModelOutput(JObject json)
+        internal static string ParseModelOutput(JObject json)
         {
             if (json["content"] is JArray contentArray)
             {
@@ -145,7 +145,7 @@ namespace SsmsSqlFormatter.Formatting
             return string.Empty;
         }
 
-        private static string StripCodeFences(string text)
+        internal static string StripCodeFences(string text)
         {
             const string tripleFence = "```";
             if (text.StartsWith(tripleFence, StringComparison.Ordinal))
@@ -166,7 +166,7 @@ namespace SsmsSqlFormatter.Formatting
             return text.Trim();
         }
 
-        private static string TryGetApiError(string body)
+        internal static string TryGetApiError(string body)
         {
             try
             {

@@ -95,6 +95,14 @@
           <ToolTipText>Show a preview of the formatted SQL without replacing the document</ToolTipText>
         </Strings>
       </Button>
+      <Button guid="guidSsmsSqlFormatterCmdSet" id="cmdidBatchFormat" priority="0x0123" type="Button">
+        <Parent guid="guidSsmsSqlFormatterCmdSet" id="ToolsMenuGroup" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Format Files...</ButtonText>
+          <ToolTipText>Format one or more .sql files on disk in place (rule-based engine)</ToolTipText>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
@@ -121,6 +129,7 @@
       <IDSymbol name="cmdidExportSettings" value="0x0107" />
       <IDSymbol name="cmdidImportSettings" value="0x0108" />
       <IDSymbol name="cmdidPreviewFormat" value="0x0109" />
+      <IDSymbol name="cmdidBatchFormat" value="0x010A" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>

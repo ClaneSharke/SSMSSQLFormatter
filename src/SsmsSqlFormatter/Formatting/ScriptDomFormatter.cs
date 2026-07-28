@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
 using System.Runtime.Caching;
 using System.Security.Cryptography;
@@ -28,7 +29,112 @@ namespace SsmsSqlFormatter.Formatting
     {
         private static readonly MemoryCache _formatCache = MemoryCache.Default;
         private static readonly object _cacheLock = new object();
+
+        /// <summary>
+        /// Matches a SQLCMD-mode directive line (:setvar, :r, :connect, :on error, :!!, ...).
+        /// T-SQL statements never begin with a bare colon, so this is unambiguous.
+        /// </summary>
+        private static readonly Regex SqlCmdLineRegex =
+            new Regex(@"^[ \t]*:(?:!!|[A-Za-z]+)\b[^\r\n]*", RegexOptions.Multiline | RegexOptions.Compiled);
+
+        private const string SqlCmdMarkerPrefix = "§SQLCMD#";
+        private const string SqlCmdMarkerSuffix = "§";
+
         public static FormatResult Format(string sql, GeneralOptions options)
+        {
+            if (options != null && !string.IsNullOrEmpty(sql) && sql.IndexOf(':') >= 0)
+            {
+                string prepared = ExtractSqlCmdLines(sql, out List<string> sqlCmdLines);
+                if (sqlCmdLines.Count > 0)
+                    return FormatWithSqlCmdLines(prepared, sqlCmdLines, options);
+            }
+
+            return FormatCore(sql, options);
+        }
+
+        /// <summary>
+        /// Formats a script that contains SQLCMD-mode directives. ScriptDom cannot parse
+        /// those lines at all, so they are replaced with marker comments before parsing
+        /// and spliced back in verbatim afterwards. Comment preservation is forced on for
+        /// this call regardless of the "Preserve comments" setting, because the markers
+        /// travel through formatting as comments - unlike a decorative comment, losing one
+        /// would silently corrupt the script (it would no longer run under sqlcmd/SSMS).
+        /// </summary>
+        private static FormatResult FormatWithSqlCmdLines(string prepared, List<string> sqlCmdLines, GeneralOptions options)
+        {
+            var innerOptions = CloneWithPreserveComments(options, true);
+            var result = FormatCore(prepared, innerOptions);
+            if (!result.Success) return result;
+
+            result.FormattedSql = ReinsertSqlCmdLines(result.FormattedSql, sqlCmdLines);
+            result.CommentCount = Math.Max(0, result.CommentCount - sqlCmdLines.Count);
+            return result;
+        }
+
+        private static string ExtractSqlCmdLines(string sql, out List<string> sqlCmdLines)
+        {
+            var lines = new List<string>();
+            string prepared = SqlCmdLineRegex.Replace(sql, m =>
+            {
+                lines.Add(m.Value);
+                return "--" + SqlCmdMarkerPrefix + (lines.Count - 1) + SqlCmdMarkerSuffix;
+            });
+            sqlCmdLines = lines;
+            return prepared;
+        }
+
+        /// <summary>
+        /// Splices each SQLCMD directive back into its marker's position, verbatim. A
+        /// marker that can't be found (e.g. the generator failed to round-trip that
+        /// comment) is never silently dropped - it's appended at the end under a banner
+        /// instead, matching how lost comments are handled elsewhere.
+        /// </summary>
+        private static string ReinsertSqlCmdLines(string formatted, List<string> sqlCmdLines)
+        {
+            var lost = new List<string>();
+            for (int i = 0; i < sqlCmdLines.Count; i++)
+            {
+                string marker = "--" + SqlCmdMarkerPrefix + i + SqlCmdMarkerSuffix;
+                int idx = formatted.IndexOf(marker, StringComparison.Ordinal);
+                if (idx < 0)
+                {
+                    lost.Add(sqlCmdLines[i]);
+                    continue;
+                }
+
+                int lineStart = formatted.LastIndexOf('\n', Math.Max(0, idx - 1)) + 1;
+                int lineEnd = formatted.IndexOf('\n', idx);
+                if (lineEnd < 0) lineEnd = formatted.Length;
+                int cut = lineEnd;
+                if (cut > lineStart && formatted[cut - 1] == '\r') cut--;
+
+                formatted = formatted.Substring(0, lineStart) + sqlCmdLines[i] + formatted.Substring(cut);
+            }
+
+            if (lost.Count > 0)
+            {
+                formatted += "\r\n\r\n-- [SQL Formatter] the following SQLCMD directive(s) could not be " +
+                             "repositioned automatically - move them back into place manually:";
+                foreach (var line in lost) formatted += "\r\n" + line;
+            }
+
+            return formatted;
+        }
+
+        /// <summary>Shallow copy of a GeneralOptions instance with one property overridden - never mutates the source.</summary>
+        private static GeneralOptions CloneWithPreserveComments(GeneralOptions source, bool preserveComments)
+        {
+            var clone = new GeneralOptions();
+            foreach (var prop in typeof(GeneralOptions).GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                if (!prop.CanRead || !prop.CanWrite) continue;
+                try { prop.SetValue(clone, prop.GetValue(source)); } catch { /* skip */ }
+            }
+            clone.PreserveComments = preserveComments;
+            return clone;
+        }
+
+        private static FormatResult FormatCore(string sql, GeneralOptions options)
         {
             if (options != null && options.EnableFormattingCache && !string.IsNullOrEmpty(sql))
             {
@@ -431,8 +537,14 @@ namespace SsmsSqlFormatter.Formatting
                 options.DataTypeCasing != IdentifierCase.Unchanged)
                 sql = ApplyIdentifierCasing(sql, options.FunctionCasing, options.DataTypeCasing);
 
+            if (options.MaxLineLength > 0)
+                sql = WrapLongLines(sql, options.MaxLineLength);
+
             if (options.Commas == CommaPlacement.Leading)
                 sql = MoveCommasToLineStart(sql);
+
+            if (options.AlignSetClauseAssignments)
+                sql = AlignAssignments(sql);
 
             if (options.UseTabsForIndentation)
                 sql = ConvertIndentToTabs(sql, Math.Max(1, options.IndentationSize));
@@ -872,6 +984,218 @@ namespace SsmsSqlFormatter.Formatting
                     sb.Append(token.Text);
             }
 
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Wraps top-level (depth-0) comma-separated lists that ended up on one line
+        /// and exceed <paramref name="maxLength"/> characters, one item per line at the
+        /// line's own indentation. Lists nested inside parentheses (IN-lists, function
+        /// call arguments) are left untouched - reliably wrapping just the innermost
+        /// list on a line with several nested parenthesized groups needs more context
+        /// than this pass tracks, so it only handles the unambiguous depth-0 case.
+        /// </summary>
+        private static string WrapLongLines(string sql, int maxLength)
+        {
+            var parser = new TSql160Parser(initialQuotedIdentifiers: true);
+            TSqlFragment frag;
+            IList<ParseError> errors;
+            using (var reader = new StringReader(sql))
+            {
+                frag = parser.Parse(reader, out errors);
+            }
+            if (frag?.ScriptTokenStream == null) return sql;
+
+            var toks = frag.ScriptTokenStream;
+            var result = new StringBuilder(sql.Length + 256);
+            var lineBuf = new StringBuilder();
+            var commaOffsets = new List<int>();
+            string indent = "";
+            bool atLineStart = true;
+            int depth = 0;
+
+            void FlushLine()
+            {
+                string line = lineBuf.ToString();
+                if (indent.Length + line.Length > maxLength && commaOffsets.Count > 0)
+                {
+                    int last = 0;
+                    foreach (int pos in commaOffsets)
+                    {
+                        int splitAt = pos + 1; // just after the comma
+                        while (splitAt < line.Length && line[splitAt] == ' ') splitAt++;
+                        result.Append(line, last, splitAt - last).Append("\r\n").Append(indent);
+                        last = splitAt;
+                    }
+                    result.Append(line, last, line.Length - last);
+                }
+                else
+                {
+                    result.Append(line);
+                }
+                lineBuf.Clear();
+                commaOffsets.Clear();
+            }
+
+            for (int i = 0; i < toks.Count; i++)
+            {
+                var t = toks[i];
+                if (t.TokenType == TSqlTokenType.EndOfFile) continue;
+                string text = t.Text ?? "";
+
+                if (t.TokenType == TSqlTokenType.WhiteSpace)
+                {
+                    if (text.IndexOf('\n') >= 0)
+                    {
+                        FlushLine();
+                        result.Append(text);
+                        indent = text.Substring(text.LastIndexOf('\n') + 1);
+                        atLineStart = true;
+                        continue;
+                    }
+                    if (atLineStart)
+                    {
+                        // A whitespace-only token continuing the leading indent,
+                        // tokenized separately from the preceding newline.
+                        indent += text;
+                        result.Append(text);
+                        continue;
+                    }
+                    lineBuf.Append(text);
+                    continue;
+                }
+
+                atLineStart = false;
+                if (t.TokenType == TSqlTokenType.LeftParenthesis) depth++;
+                else if (t.TokenType == TSqlTokenType.RightParenthesis) depth = Math.Max(0, depth - 1);
+                else if (t.TokenType == TSqlTokenType.Comma && depth == 0)
+                {
+                    commaOffsets.Add(lineBuf.Length);
+                }
+
+                lineBuf.Append(text);
+            }
+            FlushLine();
+
+            return result.ToString();
+        }
+
+        /// <summary>
+        /// Aligns the '=' in runs of consecutive "name = expr" lines (SET clause
+        /// assignments, old-style "alias = expr" SELECT items, simple equality lines)
+        /// by padding the shorter left-hand sides with spaces. Only lines with exactly
+        /// one top-level '=' (not nested inside parentheses) participate; anything else
+        /// - including a line with more than one top-level '=' - breaks the run, so
+        /// unrelated code (comparisons, multi-condition lines) is never touched.
+        /// </summary>
+        private static string AlignAssignments(string sql)
+        {
+            var parser = new TSql160Parser(initialQuotedIdentifiers: true);
+            TSqlFragment frag;
+            IList<ParseError> errors;
+            using (var reader = new StringReader(sql))
+            {
+                frag = parser.Parse(reader, out errors);
+            }
+            if (frag?.ScriptTokenStream == null) return sql;
+
+            var toks = frag.ScriptTokenStream;
+            var equalsColumnByLine = new Dictionary<int, int>();
+            var equalsCountByLine = new Dictionary<int, int>();
+            var equalsTokenIndexByLine = new Dictionary<int, int>();
+            var firstTokenTypeByLine = new Dictionary<int, TSqlTokenType>();
+
+            int depth = 0;
+            int currentLine = 0;
+            int col = 0;
+            for (int i = 0; i < toks.Count; i++)
+            {
+                var t = toks[i];
+                if (t.TokenType == TSqlTokenType.EndOfFile) continue;
+                string text = t.Text ?? "";
+
+                if (t.TokenType == TSqlTokenType.WhiteSpace && text.IndexOf('\n') >= 0)
+                {
+                    currentLine++;
+                    col = text.Length - text.LastIndexOf('\n') - 1;
+                    continue;
+                }
+                if (t.TokenType == TSqlTokenType.WhiteSpace)
+                {
+                    col += text.Length;
+                    continue;
+                }
+
+                if (!firstTokenTypeByLine.ContainsKey(currentLine))
+                    firstTokenTypeByLine[currentLine] = t.TokenType;
+
+                if (t.TokenType == TSqlTokenType.LeftParenthesis) depth++;
+                else if (t.TokenType == TSqlTokenType.RightParenthesis) depth = Math.Max(0, depth - 1);
+                else if (t.TokenType == TSqlTokenType.EqualsSign && depth == 0)
+                {
+                    equalsCountByLine[currentLine] = equalsCountByLine.TryGetValue(currentLine, out int c) ? c + 1 : 1;
+                    if (!equalsColumnByLine.ContainsKey(currentLine))
+                    {
+                        equalsColumnByLine[currentLine] = col;
+                        equalsTokenIndexByLine[currentLine] = i;
+                    }
+                }
+
+                col += text.Length;
+            }
+
+            // A line only qualifies as a plain assignment when it starts with an
+            // identifier (or a leading comma, for the leading-comma style) - this
+            // excludes clause keywords (WHERE, HAVING, ON, AND, OR, ...) so an
+            // unrelated condition never gets pulled into a SET clause's alignment run.
+            bool IsAssignmentLineStart(TSqlTokenType tt) =>
+                tt == TSqlTokenType.Identifier || tt == TSqlTokenType.QuotedIdentifier ||
+                tt == TSqlTokenType.Variable || tt == TSqlTokenType.Comma;
+
+            var eligibleLines = equalsColumnByLine.Keys
+                .Where(l => equalsCountByLine[l] == 1 &&
+                            firstTokenTypeByLine.TryGetValue(l, out var ft) && IsAssignmentLineStart(ft))
+                .OrderBy(l => l)
+                .ToList();
+            if (eligibleLines.Count < 2) return sql;
+
+            // Group into runs of consecutive eligible lines; align each run independently.
+            var targetColumnByLine = new Dictionary<int, int>();
+            int runStart = 0;
+            for (int k = 1; k <= eligibleLines.Count; k++)
+            {
+                bool endOfRun = k == eligibleLines.Count || eligibleLines[k] != eligibleLines[k - 1] + 1;
+                if (endOfRun)
+                {
+                    if (k - runStart >= 2)
+                    {
+                        int maxCol = 0;
+                        for (int m = runStart; m < k; m++)
+                            maxCol = Math.Max(maxCol, equalsColumnByLine[eligibleLines[m]]);
+                        for (int m = runStart; m < k; m++)
+                            targetColumnByLine[eligibleLines[m]] = maxCol;
+                    }
+                    runStart = k;
+                }
+            }
+            if (targetColumnByLine.Count == 0) return sql;
+
+            var padBeforeIndex = new Dictionary<int, int>();
+            foreach (var kvp in targetColumnByLine)
+            {
+                int pad = kvp.Value - equalsColumnByLine[kvp.Key];
+                if (pad > 0) padBeforeIndex[equalsTokenIndexByLine[kvp.Key]] = pad;
+            }
+            if (padBeforeIndex.Count == 0) return sql;
+
+            var sb = new StringBuilder(sql.Length + padBeforeIndex.Count * 4);
+            for (int i = 0; i < toks.Count; i++)
+            {
+                if (toks[i].TokenType == TSqlTokenType.EndOfFile) continue;
+                if (padBeforeIndex.TryGetValue(i, out int pad))
+                    sb.Append(' ', pad);
+                sb.Append(toks[i].Text ?? "");
+            }
             return sb.ToString();
         }
 

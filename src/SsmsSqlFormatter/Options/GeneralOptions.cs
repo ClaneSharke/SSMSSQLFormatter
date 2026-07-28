@@ -104,6 +104,11 @@ namespace SsmsSqlFormatter.Options
         public bool IncludeSemicolons { get; set; } = true;
 
         [Category("2. Basics")]
+        [DisplayName("Max line length (0 = off)")]
+        [Description("When a top-level comma-separated list (a SELECT/GROUP BY/ORDER BY list kept on one line) exceeds this many characters, wraps it one item per line at the same indentation. Does not apply inside parentheses (IN-lists, function call arguments) - those are left as ScriptDom rendered them. 0 disables wrapping.")]
+        public int MaxLineLength { get; set; } = 0;
+
+        [Category("2. Basics")]
         [DisplayName("AS keyword on its own line")]
         [Description("Place AS on a new line in views/procedures (Custom preset only).")]
         public bool AsKeywordOnOwnLine { get; set; } = true;
@@ -189,6 +194,11 @@ namespace SsmsSqlFormatter.Options
         [DisplayName("Indent SET clause")]
         [Description("Indent the SET clause body in UPDATE statements.")]
         public bool IndentSetClause { get; set; } = true;
+
+        [Category("4. Lists")]
+        [DisplayName("Align '=' in assignments")]
+        [Description("In runs of two or more consecutive lines shaped like 'name = expression' (SET clause assignments, old-style 'alias = expr' SELECT items), pads the shorter left-hand sides so every '=' lines up in the same column. A line with more than one top-level '=' (a comparison, not a single assignment) breaks the run and is left alone. Off by default to keep output identical to previous versions.")]
+        public bool AlignSetClauseAssignments { get; set; } = false;
 
         // ---------- Blank lines & GO ----------
         [Category("5. Blank lines and GO")]
@@ -312,6 +322,12 @@ namespace SsmsSqlFormatter.Options
         [DisplayName("Band colour")]
         [Description("Shade used for alternate rows when 'Banded rows' is on.")]
         public Color ExcelBandColor { get; set; } = ColorTranslator.FromHtml("#F2F6FC");
+
+        // ---------- Format on save ----------
+        [Category("9. Format on save")]
+        [DisplayName("Format on save")]
+        [Description("Automatically formats .sql documents immediately before they are saved (Ctrl+S, Save All, closing a dirty document, etc.), using the settings above. Always uses the rule-based engine, regardless of the 'Formatting engine' setting above, so saving never blocks on a network call or a confirmation dialog. A script that fails to parse is saved untouched.")]
+        public bool FormatOnSave { get; set; } = false;
 
         // ---------- Safety ----------
         [Category("6. Safety")]

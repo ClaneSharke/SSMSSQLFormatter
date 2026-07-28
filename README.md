@@ -6,6 +6,10 @@
 
 Format with **Ctrl+Shift+Alt+F**, right-click → **Format T-SQL Script**, or the Tools menu. Formats the selection if there is one, otherwise the whole document; Ctrl+Z undoes the entire format. Settings live under **Tools → Options → Format T-SQL Script** (General, AI Engine, and Help pages). Scripts with syntax errors are never modified, and comments are never silently deleted. A **Format T-SQL Script Help** entry in the Tools menu shows this summary inside SSMS.
 
+**Format on save:** turn on **Format on save** (General page) to auto-format every `.sql` document right before it's written to disk (Ctrl+S, Save All, etc.). This always uses the rule-based engine — never AI — so saving is never delayed by a network call or a confirmation prompt, and a script that fails to parse is saved untouched.
+
+**Format Files...:** Tools menu → pick one or more `.sql` files and format them on disk in place (rule-based engine, original file encoding preserved). Useful for formatting a batch of migration/deployment scripts at once. A file that fails to parse is left untouched and reported at the end.
+
 **Copy results to Excel:** click in the results grid, select cells (Ctrl+A for all), press **Ctrl+Shift+Alt+X**, then Ctrl+V in Excel — you get a real table with bold headers and (by default) all cells as Text so leading zeros and long IDs survive. Configure under Tools → Options → Format T-SQL Script.
 
 **Export options:** choose **.xlsx or .csv**, set an **output folder** (or be prompted per export), and optionally include a **Query sheet** recording the SQL that produced the data. Workbooks get a **frozen header row** and **AutoFilter** dropdowns by default. Share your whole configuration with **Tools → Export / Import Formatter Settings**.

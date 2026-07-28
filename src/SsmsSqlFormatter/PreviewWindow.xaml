@@ -12,9 +12,17 @@
                  AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                  TextWrapping="NoWrap" IsReadOnly="False" />
 
-        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="8">
-            <Button Name="ApplyButton" Width="90" Margin="4" Click="ApplyButton_Click">Apply</Button>
-            <Button Name="CloseButton" Width="90" Margin="4" Click="CloseButton_Click">Close</Button>
-        </StackPanel>
+        <RichTextBox Name="DiffText" Grid.Row="0" Margin="8" FontFamily="Consolas" FontSize="12"
+                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                     IsReadOnly="True" IsDocumentEnabled="False" Visibility="Collapsed" />
+
+        <DockPanel Grid.Row="1" Margin="8" LastChildFill="False">
+            <CheckBox Name="ShowDiffCheckBox" Content="Show differences" VerticalAlignment="Center"
+                      DockPanel.Dock="Left" Checked="ShowDiffCheckBox_Changed" Unchecked="ShowDiffCheckBox_Changed" />
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                <Button Name="ApplyButton" Width="90" Margin="4" Click="ApplyButton_Click">Apply</Button>
+                <Button Name="CloseButton" Width="90" Margin="4" Click="CloseButton_Click">Close</Button>
+            </StackPanel>
+        </DockPanel>
     </Grid>
 </Window>

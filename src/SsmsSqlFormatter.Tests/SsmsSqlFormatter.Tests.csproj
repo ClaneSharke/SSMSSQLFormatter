@@ -17,9 +17,23 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Drawing" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ScriptDomFormatterTests.cs" />
+    <Compile Include="FormatOnSaveDocTableEventsTests.cs" />
+    <Compile Include="SqlCmdSupportTests.cs" />
+    <Compile Include="CredentialVaultTests.cs" />
+    <Compile Include="AlignAssignmentsTests.cs" />
+    <Compile Include="WrapLongLinesTests.cs" />
+    <Compile Include="LineDiffTests.cs" />
+    <Compile Include="AiFormatterTests.cs" />
+    <Compile Include="CsvWriterTests.cs" />
+    <Compile Include="XlsxWriterTests.cs" />
+    <Compile Include="FormatSqlCommandTests.cs" />
+    <Compile Include="BatchFormatTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="NUnit" Version="3.13.3" />

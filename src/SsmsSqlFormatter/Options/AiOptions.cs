@@ -5,9 +5,11 @@ namespace SsmsSqlFormatter.Options
 {
     public class AiOptions : DialogPage
     {
+        private const string ApiKeyCredentialTarget = "SsmsSqlFormatter:AnthropicApiKey";
+
         [Category("1. Connection")]
         [DisplayName("Anthropic API key")]
-        [Description("Your Anthropic API key (sk-ant-...). NOTE: stored in the SSMS settings registry hive in plain text — do not use on shared machines. Get a key at console.anthropic.com.")]
+        [Description("Your Anthropic API key (sk-ant-...). Stored securely in Windows Credential Manager for the current user (not in plain text). Get a key at console.anthropic.com.")]
         [PasswordPropertyText(true)]
         public string ApiKey { get; set; } = string.Empty;
 
@@ -48,5 +50,49 @@ namespace SsmsSqlFormatter.Options
         [DisplayName("Confirm before sending script")]
         [Description("Ask for confirmation before sending SQL to the Anthropic API. Recommended: scripts may contain table names, literals, or embedded data you consider sensitive.")]
         public bool ConfirmBeforeSending { get; set; } = true;
+
+        /// <summary>
+        /// Loads the other settings normally, then substitutes the real API key from
+        /// Windows Credential Manager. A non-empty key surviving from the registry-backed
+        /// store at this point is a legacy plain-text key from an older version - it gets
+        /// migrated into Credential Manager once and used for this load.
+        /// </summary>
+        public override void LoadSettingsFromStorage()
+        {
+            base.LoadSettingsFromStorage();
+
+            string legacyPlainTextKey = ApiKey;
+            string stored = CredentialVault.TryLoad(ApiKeyCredentialTarget);
+            if (stored != null)
+            {
+                ApiKey = stored;
+            }
+            else if (!string.IsNullOrEmpty(legacyPlainTextKey))
+            {
+                if (CredentialVault.TrySave(ApiKeyCredentialTarget, legacyPlainTextKey))
+                    ApiKey = legacyPlainTextKey; // migrated; the next save blanks the registry copy
+            }
+        }
+
+        /// <summary>
+        /// Saves the API key to Credential Manager and blanks it out of the
+        /// registry-backed store before saving everything else - so the key never
+        /// lands in plain text. If Credential Manager is unavailable, falls back to
+        /// the old plain-text storage rather than silently losing the key.
+        /// </summary>
+        public override void SaveSettingsToStorage()
+        {
+            string realKey = ApiKey;
+            bool savedSecurely = CredentialVault.TrySave(ApiKeyCredentialTarget, realKey);
+            try
+            {
+                ApiKey = savedSecurely ? string.Empty : realKey;
+                base.SaveSettingsToStorage();
+            }
+            finally
+            {
+                ApiKey = realKey;
+            }
+        }
     }
 }
