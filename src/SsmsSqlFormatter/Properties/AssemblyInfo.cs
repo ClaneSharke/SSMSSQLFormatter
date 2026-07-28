@@ -9,6 +9,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyProduct("SSMS SQL Formatter")]
 [assembly: AssemblyCopyright("Copyright © 2026")]
 [assembly: ComVisible(false)]
-[assembly: AssemblyVersion("2.3.5")]
-[assembly: AssemblyFileVersion("2.3.5")]
+[assembly: AssemblyVersion("2.4.0")]
+[assembly: AssemblyFileVersion("2.4.0")]
+
 
