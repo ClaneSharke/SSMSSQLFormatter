@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Id="SsmsSqlFormatter.7f3d2a1e-5b8c-4e9f-a6d0-1c4b7e2f9a35" Version="2.4.0" Language="en-US" Publisher="Shane" />
+    <Identity Id="SsmsSqlFormatter.7f3d2a1e-5b8c-4e9f-a6d0-1c4b7e2f9a35" Version="2.4.1" Language="en-US" Publisher="Shane" />
     <DisplayName>SSMS SQL Formatter (Rules + AI)</DisplayName>
     <Description xml:space="preserve">Format T-SQL and export results to Excel directly inside SSMS. Includes rule-based formatting, optional AI-assisted formatting, comment preservation, and export to styled XLSX/CSV with configurable layouts. Settings are available under Tools &gt; Options &gt; Format T-SQL Script.</Description>
     <Tags>SQL;T-SQL;Formatter;SSMS;AI</Tags>
