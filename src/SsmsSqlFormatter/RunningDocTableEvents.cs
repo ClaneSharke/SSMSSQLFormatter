@@ -5,6 +5,7 @@ using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using SsmsSqlFormatter.Formatting;
+using SsmsSqlFormatter.Options;
 
 namespace SsmsSqlFormatter
 {
@@ -53,6 +54,9 @@ namespace SsmsSqlFormatter
 
             _rdt.GetDocumentInfo(docCookie, out _, out _, out _, out string moniker, out _, out _, out _);
             if (!IsSqlFile(moniker)) return;
+
+            if (general.UseFolderConfig)
+                general = (GeneralOptions)FormatterConfigDiscovery.ResolveEffectiveSettings(moniker, general);
 
             var dte = (DTE2)Package.GetGlobalService(typeof(DTE));
             if (dte == null) return;

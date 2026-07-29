@@ -91,7 +91,7 @@ namespace SsmsSqlFormatter.Formatting
             }
         }
 
-        internal static string BuildSystemPrompt(GeneralOptions general, AiOptions ai)
+        internal static string BuildSystemPrompt(IFormatterOptions general, AiOptions ai)
         {
             var sb = new StringBuilder();
             sb.AppendLine("You are a T-SQL code formatter. You receive a T-SQL script and return the SAME script, reformatted.");

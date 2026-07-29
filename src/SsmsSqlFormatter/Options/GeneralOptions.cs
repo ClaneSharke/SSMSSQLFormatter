@@ -51,7 +51,7 @@ namespace SsmsSqlFormatter.Options
         Leading
     }
 
-    public class GeneralOptions : DialogPage
+    public class GeneralOptions : DialogPage, IFormatterOptions
     {
         // ---------- Engine ----------
         [Category("1. Engine")]
@@ -200,6 +200,16 @@ namespace SsmsSqlFormatter.Options
         [Description("In runs of two or more consecutive lines shaped like 'name = expression' (SET clause assignments, old-style 'alias = expr' SELECT items), pads the shorter left-hand sides so every '=' lines up in the same column. A line with more than one top-level '=' (a comparison, not a single assignment) breaks the run and is left alone. Off by default to keep output identical to previous versions.")]
         public bool AlignSetClauseAssignments { get; set; } = false;
 
+        [Category("4. Lists")]
+        [DisplayName("Align ON in JOIN clauses")]
+        [Description("Condenses each JOIN clause onto one line ('JOIN table ON condition' - ScriptDom's generator otherwise always splits these across three lines regardless of preset) and, in runs of two or more consecutive joins, pads the shorter ones so every ON keyword lines up in the same column. Off by default.")]
+        public bool AlignJoinConditions { get; set; } = false;
+
+        [Category("4. Lists")]
+        [DisplayName("Align THEN in CASE expressions")]
+        [Description("Expands a CASE expression with 2+ WHEN branches onto multiple lines (ScriptDom's generator otherwise never breaks CASE WHEN onto separate lines) and pads the shorter WHEN conditions so every THEN keyword lines up in the same column. A CASE with a single WHEN branch is left untouched. Off by default.")]
+        public bool AlignCaseExpressions { get; set; } = false;
+
         // ---------- Blank lines & GO ----------
         [Category("5. Blank lines and GO")]
         [DisplayName("Blank lines before GO")]
@@ -323,11 +333,22 @@ namespace SsmsSqlFormatter.Options
         [Description("Shade used for alternate rows when 'Banded rows' is on.")]
         public Color ExcelBandColor { get; set; } = ColorTranslator.FromHtml("#F2F6FC");
 
+        // ---------- Shared config ----------
+        [Category("10. Shared config")]
+        [DisplayName("Use folder-level .sqlformatter.json")]
+        [Description("When formatting a saved file, looks for a '.sqlformatter.json' file (same format as Export Formatter Settings) in the file's folder or an ancestor folder, and applies it on top of these settings for that operation only - your own Tools > Options settings are never modified or persisted. Lets a team check one settings file into a repo so everyone (and CI) formats the same way. On by default; turn off if you don't want a folder's contents to ever change how a script is formatted.")]
+        public bool UseFolderConfig { get; set; } = true;
+
         // ---------- Format on save ----------
         [Category("9. Format on save")]
         [DisplayName("Format on save")]
         [Description("Automatically formats .sql documents immediately before they are saved (Ctrl+S, Save All, closing a dirty document, etc.), using the settings above. Always uses the rule-based engine, regardless of the 'Formatting engine' setting above, so saving never blocks on a network call or a confirmation dialog. A script that fails to parse is saved untouched.")]
         public bool FormatOnSave { get; set; } = false;
+
+        [Category("9. Format on save")]
+        [DisplayName("Format on paste")]
+        [Description("Automatically reformats a .sql document right after pasting multi-line text into it, using the settings above. Detects a paste as a single edit that inserts multi-line text - ordinary typing is never affected. Always uses the rule-based engine, for the same reason as format on save. A script that fails to parse is left untouched.")]
+        public bool FormatOnPaste { get; set; } = false;
 
         // ---------- Safety ----------
         [Category("6. Safety")]

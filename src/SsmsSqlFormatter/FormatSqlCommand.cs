@@ -28,6 +28,7 @@ namespace SsmsSqlFormatter
         public const int ImportSettingsCommandId = 0x0108;
         public const int PreviewFormatCommandId = 0x0109;
         public const int BatchFormatCommandId = 0x010A;
+        public const int FormatAllOpenCommandId = 0x010B;
 
         private readonly SsmsSqlFormatterPackage _package;
 
@@ -45,6 +46,7 @@ namespace SsmsSqlFormatter
             commandService.AddCommand(new MenuCommand(ExecuteImportSettings, new CommandID(CommandSet, ImportSettingsCommandId)));
             commandService.AddCommand(new MenuCommand(ExecutePreviewFormat, new CommandID(CommandSet, PreviewFormatCommandId)));
             commandService.AddCommand(new MenuCommand(ExecuteBatchFormat, new CommandID(CommandSet, BatchFormatCommandId)));
+            commandService.AddCommand(new MenuCommand(ExecuteFormatAllOpen, new CommandID(CommandSet, FormatAllOpenCommandId)));
         }
 
         // Result sets queued by "Add Results as Sheet", exported together as one workbook.
@@ -334,16 +336,7 @@ namespace SsmsSqlFormatter
                     dialog.OverwritePrompt = true;
                     if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
 
-                    var json = new Newtonsoft.Json.Linq.JObject();
-                    foreach (var prop in typeof(Options.GeneralOptions).GetProperties())
-                    {
-                        if (!prop.CanRead || !prop.CanWrite) continue;
-                        object value = prop.GetValue(general);
-                        if (value is System.Drawing.Color color) json[prop.Name] = Hex(color);
-                        else if (value is Enum) json[prop.Name] = value.ToString();
-                        else json[prop.Name] = Newtonsoft.Json.Linq.JToken.FromObject(value ?? "");
-                    }
-                    System.IO.File.WriteAllText(dialog.FileName, json.ToString());
+                    System.IO.File.WriteAllText(dialog.FileName, Options.FormatterSettingsSerializer.ToJson(general));
                     ShowInfo("Settings exported to:\r\n" + dialog.FileName);
                 }
             }
@@ -366,31 +359,8 @@ namespace SsmsSqlFormatter
                     dialog.Filter = "JSON file (*.json)|*.json|All files (*.*)|*.*";
                     if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
 
-                    var json = Newtonsoft.Json.Linq.JObject.Parse(
-                        System.IO.File.ReadAllText(dialog.FileName));
-
-                    int applied = 0, skipped = 0;
-                    foreach (var prop in typeof(Options.GeneralOptions).GetProperties())
-                    {
-                        if (!prop.CanRead || !prop.CanWrite) continue;
-                        var token = json[prop.Name];
-                        if (token == null) continue;
-                        try
-                        {
-                            if (prop.PropertyType == typeof(System.Drawing.Color))
-                                prop.SetValue(general,
-                                    System.Drawing.ColorTranslator.FromHtml((string)token));
-                            else if (prop.PropertyType.IsEnum)
-                                prop.SetValue(general, Enum.Parse(prop.PropertyType, (string)token, true));
-                            else
-                                prop.SetValue(general, token.ToObject(prop.PropertyType));
-                            applied++;
-                        }
-                        catch
-                        {
-                            skipped++;   // unknown or malformed value - keep the existing setting
-                        }
-                    }
+                    var (applied, skipped) = Options.FormatterSettingsSerializer.ApplyFromJson(
+                        general, System.IO.File.ReadAllText(dialog.FileName));
 
                     general.SaveSettingsToStorage();
                     ShowInfo($"Imported {applied} setting(s)." +
@@ -571,60 +541,6 @@ namespace SsmsSqlFormatter
         }
 
 
-        /// <summary>Outcome of a batch-format run: how many files changed, how many were already formatted, and any that couldn't be processed.</summary>
-        internal class BatchFormatResult
-        {
-            public int FormattedCount;
-            public int UnchangedCount;
-            public System.Collections.Generic.List<string> Failures = new System.Collections.Generic.List<string>();
-        }
-
-        /// <summary>
-        /// Formats each file on disk in place using the rule-based engine (never AI -
-        /// this must run unattended across many files with no confirmation prompt or
-        /// network call per file). A file's original encoding (including BOM) is
-        /// detected and preserved. A file that fails to parse is left completely
-        /// untouched and reported back, exactly like the single-file Format command.
-        /// </summary>
-        internal static BatchFormatResult FormatFiles(System.Collections.Generic.IEnumerable<string> paths, Options.GeneralOptions general)
-        {
-            var summary = new BatchFormatResult();
-            foreach (var path in paths)
-            {
-                try
-                {
-                    string original;
-                    System.Text.Encoding encoding;
-                    using (var reader = new System.IO.StreamReader(path, System.Text.Encoding.UTF8, true))
-                    {
-                        original = reader.ReadToEnd();
-                        encoding = reader.CurrentEncoding;
-                    }
-
-                    var result = Formatting.ScriptDomFormatter.Format(original, general);
-                    if (!result.Success)
-                    {
-                        summary.Failures.Add(System.IO.Path.GetFileName(path) + ": " + result.ErrorMessage);
-                        continue;
-                    }
-
-                    if (result.FormattedSql == original)
-                    {
-                        summary.UnchangedCount++;
-                        continue;
-                    }
-
-                    System.IO.File.WriteAllText(path, result.FormattedSql, encoding);
-                    summary.FormattedCount++;
-                }
-                catch (Exception ex)
-                {
-                    summary.Failures.Add(System.IO.Path.GetFileName(path) + ": " + ex.Message);
-                }
-            }
-            return summary;
-        }
-
         private void ExecuteBatchFormat(object sender, EventArgs e)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
@@ -650,7 +566,7 @@ namespace SsmsSqlFormatter
                 if (confirm != MessageBoxResult.Yes) return;
 
                 var general = _package.GetGeneralOptions();
-                var summary = FormatFiles(paths, general);
+                var summary = Formatting.BatchFormatter.FormatFiles(paths, general, dryRun: false, useFolderConfig: general.UseFolderConfig);
 
                 var message = $"Formatted {summary.FormattedCount} of {paths.Length} file(s). " +
                               $"{summary.UnchangedCount} already matched the current style.";
@@ -662,6 +578,107 @@ namespace SsmsSqlFormatter
             {
                 ShowError("Batch format failed: " + ex.Message);
             }
+        }
+
+        private void ExecuteFormatAllOpen(object sender, EventArgs e)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            _ = _package.JoinableTaskFactory.RunAsync(async () =>
+            {
+                try
+                {
+                    await ExecuteFormatAllOpenCoreAsync();
+                }
+                catch (Exception ex)
+                {
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                    ShowError("Unexpected error: " + ex.Message);
+                }
+            });
+        }
+
+        /// <summary>
+        /// Formats every currently-open .sql document in place - a normal editor edit
+        /// per window (Ctrl+Z in that window undoes it; nothing is written to disk
+        /// unless the user saves afterward), unlike "Format Files..." which writes
+        /// straight to disk. Always uses the rule-based engine, for the same reasons as
+        /// batch/save/paste formatting. A document that fails to parse is left untouched.
+        /// </summary>
+        private async Task ExecuteFormatAllOpenCoreAsync()
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            var dte = (DTE2)await _package.GetServiceAsync(typeof(DTE));
+            if (dte == null) return;
+
+            var candidates = new System.Collections.Generic.List<Document>();
+            foreach (Document doc in dte.Documents)
+            {
+                if (FormatOnSaveDocTableEvents.IsSqlFile(doc.FullName) && doc.Object("TextDocument") is TextDocument)
+                    candidates.Add(doc);
+            }
+
+            if (candidates.Count == 0)
+            {
+                ShowInfo("No open .sql documents found.");
+                return;
+            }
+
+            var confirm = MessageBox.Show(
+                $"This will format {candidates.Count} open .sql document(s) in place.\r\n\r\n" +
+                "Each is a normal editor edit - Ctrl+Z in that window undoes it, and nothing " +
+                "is written to disk unless you save afterward. Documents that fail to parse are left untouched.\r\n\r\n" +
+                "Continue?",
+                "Format All Open Files", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (confirm != MessageBoxResult.Yes) return;
+
+            var general = _package.GetGeneralOptions();
+            int formatted = 0, unchanged = 0;
+            var failures = new System.Collections.Generic.List<string>();
+
+            foreach (var doc in candidates)
+            {
+                try
+                {
+                    var textDoc = doc.Object("TextDocument") as TextDocument;
+                    if (textDoc == null) continue;
+
+                    string original = textDoc.StartPoint.CreateEditPoint().GetText(textDoc.EndPoint);
+                    if (string.IsNullOrWhiteSpace(original)) { unchanged++; continue; }
+
+                    var effective = ResolveEffectiveGeneralOptions(general, doc.FullName);
+                    var result = ScriptDomFormatter.Format(original, effective);
+                    if (!result.Success)
+                    {
+                        failures.Add(doc.Name + ": " + result.ErrorMessage);
+                        continue;
+                    }
+                    if (result.FormattedSql == original) { unchanged++; continue; }
+
+                    dte.UndoContext.Open("Format T-SQL Script (All Open Files)");
+                    try
+                    {
+                        var start = textDoc.StartPoint.CreateEditPoint();
+                        start.ReplaceText(textDoc.EndPoint, result.FormattedSql,
+                            (int)vsEPReplaceTextOptions.vsEPReplaceTextKeepMarkers);
+                    }
+                    finally
+                    {
+                        dte.UndoContext.Close();
+                    }
+                    formatted++;
+                }
+                catch (Exception ex)
+                {
+                    failures.Add(doc.Name + ": " + ex.Message);
+                }
+            }
+
+            var message = $"Formatted {formatted} of {candidates.Count} open document(s). " +
+                          $"{unchanged} already matched the current style.";
+            if (failures.Count > 0)
+                message += $"\r\n\r\n{failures.Count} document(s) were skipped:\r\n" + string.Join("\r\n", failures);
+            ShowInfo(message);
         }
 
         private void ExecuteHelp(object sender, EventArgs e)
@@ -676,10 +693,15 @@ namespace SsmsSqlFormatter
                 "Format Files...:  Tools menu. Formats one or more .sql files on disk in place\r\n" +
                 "using the rule-based engine. A file that fails to parse is left untouched.\r\n" +
                 "\r\n" +
+                "Format All Open Files:  Tools menu. Formats every open .sql document in place -\r\n" +
+                "a normal editor edit per window (Ctrl+Z undoes it), nothing written to disk\r\n" +
+                "unless you save afterward.\r\n" +
+                "\r\n" +
                 "Settings:  Tools > Options > Format T-SQL Script\r\n" +
                 "  • General — engine, Classic/Modern/Custom preset, casing, indentation,\r\n" +
                 "    comma placement, subquery re-indent, blank lines around GO,\r\n" +
-                "    comment preservation, format on save.\r\n" +
+                "    comment preservation, format on save, format on paste, shared\r\n" +
+                "    .sqlformatter.json config.\r\n" +
                 "  • AI Engine — optional Anthropic API key and custom style instructions.\r\n" +
                 "  • Help — this information inside the options dialog.\r\n" +
                 "\r\n" +
@@ -770,7 +792,7 @@ namespace SsmsSqlFormatter
                 return;
             }
 
-            var general = _package.GetGeneralOptions();
+            var general = ResolveEffectiveGeneralOptions(_package.GetGeneralOptions(), doc?.FullName);
             var ai = _package.GetAiOptions();
 
             FormatResult result;
@@ -888,7 +910,7 @@ namespace SsmsSqlFormatter
                 return;
             }
 
-            var general = _package.GetGeneralOptions();
+            var general = ResolveEffectiveGeneralOptions(_package.GetGeneralOptions(), doc?.FullName);
             var ai = _package.GetAiOptions();
 
             FormatResult result;
@@ -969,6 +991,19 @@ namespace SsmsSqlFormatter
                 (general.Engine == FormatterEngine.Ai && result.ErrorMessage == null ? " (AI)." :
                  general.Engine == FormatterEngine.Ai ? " (rule-based fallback — AI failed: " + result.ErrorMessage + ")" :
                  " (rule-based)."));
+        }
+
+        /// <summary>
+        /// Overlays a folder-level .sqlformatter.json (if the user has that on and the
+        /// document has a real path) onto the user's own settings, for this operation
+        /// only. Returns <paramref name="general"/> unchanged when there's nothing to
+        /// apply - a bad/missing repo config, or an unsaved document, never blocks formatting.
+        /// </summary>
+        private static Options.GeneralOptions ResolveEffectiveGeneralOptions(Options.GeneralOptions general, string filePath)
+        {
+            if (!general.UseFolderConfig || string.IsNullOrEmpty(filePath) || !System.IO.File.Exists(filePath))
+                return general;
+            return (Options.GeneralOptions)Options.FormatterConfigDiscovery.ResolveEffectiveSettings(filePath, general);
         }
 
         private static void SetStatus(DTE2 dte, string message)

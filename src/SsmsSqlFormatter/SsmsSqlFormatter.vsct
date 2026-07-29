@@ -103,6 +103,14 @@
           <ToolTipText>Format one or more .sql files on disk in place (rule-based engine)</ToolTipText>
         </Strings>
       </Button>
+      <Button guid="guidSsmsSqlFormatterCmdSet" id="cmdidFormatAllOpen" priority="0x0124" type="Button">
+        <Parent guid="guidSsmsSqlFormatterCmdSet" id="ToolsMenuGroup" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Format All Open Files</ButtonText>
+          <ToolTipText>Format every currently-open .sql document in place (rule-based engine) - a normal editor edit per window, undoable with Ctrl+Z</ToolTipText>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
@@ -130,6 +138,7 @@
       <IDSymbol name="cmdidImportSettings" value="0x0108" />
       <IDSymbol name="cmdidPreviewFormat" value="0x0109" />
       <IDSymbol name="cmdidBatchFormat" value="0x010A" />
+      <IDSymbol name="cmdidFormatAllOpen" value="0x010B" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>

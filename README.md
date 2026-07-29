@@ -8,11 +8,33 @@ Format with **Ctrl+Shift+Alt+F**, right-click → **Format T-SQL Script**, or th
 
 **Format on save:** turn on **Format on save** (General page) to auto-format every `.sql` document right before it's written to disk (Ctrl+S, Save All, etc.). This always uses the rule-based engine — never AI — so saving is never delayed by a network call or a confirmation prompt, and a script that fails to parse is saved untouched.
 
+**Format on paste** *(new, please report any issue)*: turn on **Format on paste** (General page) to auto-format a `.sql` document right after pasting multi-line text into it. Detected as a single edit that inserts multi-line text, so ordinary typing is never affected. Same rule-based-only, parse-failures-left-untouched behavior as format on save.
+
 **Format Files...:** Tools menu → pick one or more `.sql` files and format them on disk in place (rule-based engine, original file encoding preserved). Useful for formatting a batch of migration/deployment scripts at once. A file that fails to parse is left untouched and reported at the end.
+
+**Format All Open Files:** Tools menu → formats every currently-open `.sql` document in place. Each is a normal editor edit (Ctrl+Z in that window undoes it) — nothing is written to disk unless you save afterward. A document that fails to parse is left untouched.
 
 **Copy results to Excel:** click in the results grid, select cells (Ctrl+A for all), press **Ctrl+Shift+Alt+X**, then Ctrl+V in Excel — you get a real table with bold headers and (by default) all cells as Text so leading zeros and long IDs survive. Configure under Tools → Options → Format T-SQL Script.
 
 **Export options:** choose **.xlsx or .csv**, set an **output folder** (or be prompted per export), and optionally include a **Query sheet** recording the SQL that produced the data. Workbooks get a **frozen header row** and **AutoFilter** dropdowns by default. Share your whole configuration with **Tools → Export / Import Formatter Settings**.
+
+**Shared team config:** drop a `.sqlformatter.json` (same format as Export Formatter Settings) into a repo folder, and every format of a file under that folder — or a descendant folder — picks it up automatically, both in SSMS and from the CLI below. It overrides just that one operation; your own Tools > Options settings are never modified. Turn this off with **Use folder-level .sqlformatter.json** (General page) if you don't want a folder's contents to affect formatting.
+
+## CI / command-line use
+
+`tools/SsmsSqlFormatter.Cli` builds a standalone `ssmssqlfmt.exe` (rule-based engine only — no AI, no SSMS/VS install required) for gating a build or PR on "SQL is formatted":
+
+```text
+ssmssqlfmt check <file-or-directory...> [--config settings.json]   # reports what would change, exits 1 if anything would
+ssmssqlfmt format <file-or-directory...> [--config settings.json]  # formats in place, same as "Format Files..." in the VSIX
+```
+
+A directory argument is searched recursively for `*.sql` files. `--config` takes the same JSON file produced by **Tools → Export Formatter Settings** inside SSMS, so a team can share one style file between the IDE and CI. If `--config` is omitted, each file's own directory (and its ancestors) is searched for a `.sqlformatter.json`, same as the VSIX's shared-config discovery above. Example GitHub Actions step:
+
+```yaml
+- name: Check SQL formatting
+  run: tools\SsmsSqlFormatter.Cli\bin\Release\net48\ssmssqlfmt.exe check sql\ --config .sqlformatter.json
+```
 
 > **Results grid:** SSMS's results grid builds its own private context menu, so right-clicking the grid won't show the extension's commands. Use **Ctrl+Shift+Alt+X**, the Tools menu, or add a toolbar button (**Tools → Customize → Commands → Toolbar → Standard → Add Command → Tools → Copy Results as Excel Table**) — a toolbar button is always visible and survives upgrades.
 

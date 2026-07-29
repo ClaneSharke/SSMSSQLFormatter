@@ -40,7 +40,7 @@ namespace SsmsSqlFormatter.Formatting
         private const string SqlCmdMarkerPrefix = "§SQLCMD#";
         private const string SqlCmdMarkerSuffix = "§";
 
-        public static FormatResult Format(string sql, GeneralOptions options)
+        public static FormatResult Format(string sql, IFormatterOptions options)
         {
             if (options != null && !string.IsNullOrEmpty(sql) && sql.IndexOf(':') >= 0)
             {
@@ -60,7 +60,7 @@ namespace SsmsSqlFormatter.Formatting
         /// travel through formatting as comments - unlike a decorative comment, losing one
         /// would silently corrupt the script (it would no longer run under sqlcmd/SSMS).
         /// </summary>
-        private static FormatResult FormatWithSqlCmdLines(string prepared, List<string> sqlCmdLines, GeneralOptions options)
+        private static FormatResult FormatWithSqlCmdLines(string prepared, List<string> sqlCmdLines, IFormatterOptions options)
         {
             var innerOptions = CloneWithPreserveComments(options, true);
             var result = FormatCore(prepared, innerOptions);
@@ -121,20 +121,26 @@ namespace SsmsSqlFormatter.Formatting
             return formatted;
         }
 
-        /// <summary>Shallow copy of a GeneralOptions instance with one property overridden - never mutates the source.</summary>
-        private static GeneralOptions CloneWithPreserveComments(GeneralOptions source, bool preserveComments)
+        /// <summary>
+        /// Shallow copy of an options instance - same concrete type as the source,
+        /// whether that's <see cref="Options.GeneralOptions"/> (VSIX) or
+        /// <see cref="Options.FormatterSettings"/> (CLI) - with PreserveComments
+        /// overridden. Never mutates the source.
+        /// </summary>
+        private static IFormatterOptions CloneWithPreserveComments(IFormatterOptions source, bool preserveComments)
         {
-            var clone = new GeneralOptions();
-            foreach (var prop in typeof(GeneralOptions).GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            var type = source.GetType();
+            var clone = Activator.CreateInstance(type);
+            foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
             {
                 if (!prop.CanRead || !prop.CanWrite) continue;
                 try { prop.SetValue(clone, prop.GetValue(source)); } catch { /* skip */ }
             }
-            clone.PreserveComments = preserveComments;
-            return clone;
+            type.GetProperty(nameof(IFormatterOptions.PreserveComments))?.SetValue(clone, preserveComments);
+            return (IFormatterOptions)clone;
         }
 
-        private static FormatResult FormatCore(string sql, GeneralOptions options)
+        private static FormatResult FormatCore(string sql, IFormatterOptions options)
         {
             if (options != null && options.EnableFormattingCache && !string.IsNullOrEmpty(sql))
             {
@@ -225,7 +231,7 @@ namespace SsmsSqlFormatter.Formatting
             }
         }
 
-        private static SqlScriptGeneratorOptions BuildOptions(GeneralOptions o)
+        private static SqlScriptGeneratorOptions BuildOptions(IFormatterOptions o)
         {
             var g = new SqlScriptGeneratorOptions
             {
@@ -311,12 +317,12 @@ namespace SsmsSqlFormatter.Formatting
             return g;
         }
 
-        private static string ComputeSignature(string sql, GeneralOptions o)
+        private static string ComputeSignature(string sql, IFormatterOptions o)
         {
             // Build a stable signature from the SQL and the relevant option properties.
             var sb = new StringBuilder();
             sb.Append(sql).Append("||");
-            foreach (var prop in typeof(GeneralOptions).GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            foreach (var prop in o.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
             {
                 if (!prop.CanRead) continue;
                 object val;
@@ -519,7 +525,7 @@ namespace SsmsSqlFormatter.Formatting
         /// Style transforms that ScriptDom's generator cannot do natively:
         /// leading commas and tab-based indentation.
         /// </summary>
-        private static string PostProcess(string sql, GeneralOptions options)
+        private static string PostProcess(string sql, IFormatterOptions options)
         {
             if (options.TrimTrailingWhitespace || options.MaxConsecutiveBlankLines >= 0)
                 sql = ApplyWhitespacePolicy(sql, options.TrimTrailingWhitespace, options.MaxConsecutiveBlankLines);
@@ -545,6 +551,23 @@ namespace SsmsSqlFormatter.Formatting
 
             if (options.AlignSetClauseAssignments)
                 sql = AlignAssignments(sql);
+
+            if (options.AlignJoinConditions)
+            {
+                // ScriptDom's generator always splits JOIN/table/ON across separate
+                // lines, so condense each join clause back onto one line first -
+                // otherwise there's nothing for the alignment step to align.
+                sql = CondenseJoinClauses(sql);
+                sql = AlignJoinOn(sql);
+            }
+
+            if (options.AlignCaseExpressions)
+            {
+                // Likewise, ScriptDom never breaks CASE WHEN onto multiple lines on any
+                // preset, so expand a multi-branch CASE first.
+                sql = ExpandCaseWhenThen(sql, Math.Max(1, options.IndentationSize));
+                sql = AlignCaseWhenThen(sql);
+            }
 
             if (options.UseTabsForIndentation)
                 sql = ConvertIndentToTabs(sql, Math.Max(1, options.IndentationSize));
@@ -1222,6 +1245,328 @@ namespace SsmsSqlFormatter.Formatting
             return sb.ToString();
         }
 
+        private static readonly HashSet<TSqlTokenType> JoinLineStartTokens = new HashSet<TSqlTokenType>
+        {
+            TSqlTokenType.Join, TSqlTokenType.Inner, TSqlTokenType.Left,
+            TSqlTokenType.Right, TSqlTokenType.Full, TSqlTokenType.Cross
+        };
+
+        private static readonly HashSet<TSqlTokenType> WhenLineStartTokens = new HashSet<TSqlTokenType>
+        {
+            TSqlTokenType.When
+        };
+
+        /// <summary>Aligns the ON keyword across consecutive JOIN...ON lines, e.g. so "JOIN Customers c ON ..." and "JOIN P p ON ..." line up their ON columns.</summary>
+        private static string AlignJoinOn(string sql) => AlignKeywordColumn(sql, JoinLineStartTokens, TSqlTokenType.On);
+
+        /// <summary>Aligns the THEN keyword across consecutive CASE WHEN...THEN branches.</summary>
+        private static string AlignCaseWhenThen(string sql) => AlignKeywordColumn(sql, WhenLineStartTokens, TSqlTokenType.Then);
+
+        private class JoinCollector : TSqlFragmentVisitor
+        {
+            public readonly List<QualifiedJoin> Joins = new List<QualifiedJoin>();
+            public override void ExplicitVisit(QualifiedJoin node)
+            {
+                Joins.Add(node);
+                base.ExplicitVisit(node);
+            }
+        }
+
+        /// <summary>
+        /// Condenses each JOIN clause's own layout back onto one line - ScriptDom's
+        /// generator always splits "JOIN keyword" / "table reference" / "ON condition"
+        /// across three lines regardless of preset, which otherwise leaves nothing for
+        /// <see cref="AlignJoinOn"/> to align. Only the whitespace INSIDE a join clause
+        /// (between its own parts) is collapsed to single spaces; the line break that
+        /// starts the join clause itself is always preserved.
+        /// </summary>
+        private static string CondenseJoinClauses(string sql)
+        {
+            var parser = new TSql160Parser(initialQuotedIdentifiers: true);
+            TSqlFragment frag;
+            IList<ParseError> errors;
+            using (var reader = new StringReader(sql))
+            {
+                frag = parser.Parse(reader, out errors);
+            }
+            if (frag?.ScriptTokenStream == null) return sql;
+
+            var toks = frag.ScriptTokenStream;
+            var collector = new JoinCollector();
+            frag.Accept(collector);
+            if (collector.Joins.Count == 0) return sql;
+
+            var replacements = new Dictionary<int, string>();
+
+            void CollapseWhitespaceRange(int fromIndexInclusive, int toIndexInclusive)
+            {
+                bool inRun = false;
+                for (int i = fromIndexInclusive; i <= toIndexInclusive; i++)
+                {
+                    if (i < 0 || i >= toks.Count) continue;
+                    if (toks[i].TokenType == TSqlTokenType.WhiteSpace)
+                    {
+                        replacements[i] = inRun ? "" : " ";
+                        inRun = true;
+                    }
+                    else
+                    {
+                        inRun = false;
+                    }
+                }
+            }
+
+            foreach (var join in collector.Joins)
+            {
+                var first = join.FirstTableReference;
+                var second = join.SecondTableReference;
+                var condition = join.SearchCondition;
+                if (first == null || second == null || condition == null) continue;
+
+                // Preserve the line break right after the first table (that's what
+                // starts this join clause on its own line); collapse everything from
+                // the end of the join-type keyword sequence ("INNER JOIN" etc.) onward.
+                int joinKeywordEnd = -1;
+                for (int i = first.LastTokenIndex + 1; i < second.FirstTokenIndex; i++)
+                    if (toks[i].TokenType == TSqlTokenType.Join) joinKeywordEnd = i;
+
+                if (joinKeywordEnd >= 0)
+                    CollapseWhitespaceRange(joinKeywordEnd + 1, second.FirstTokenIndex - 1);
+
+                // Between the second table and the search condition sits the ON
+                // keyword; collapse the whitespace on both sides of it.
+                CollapseWhitespaceRange(second.LastTokenIndex + 1, condition.FirstTokenIndex - 1);
+            }
+
+            if (replacements.Count == 0) return sql;
+
+            var sb = new StringBuilder(sql.Length);
+            for (int i = 0; i < toks.Count; i++)
+            {
+                if (toks[i].TokenType == TSqlTokenType.EndOfFile) continue;
+                sb.Append(replacements.TryGetValue(i, out string repl) ? repl : (toks[i].Text ?? ""));
+            }
+            return sb.ToString();
+        }
+
+        private class CaseCollector : TSqlFragmentVisitor
+        {
+            public readonly List<CaseExpression> Cases = new List<CaseExpression>();
+            public override void ExplicitVisit(SimpleCaseExpression node) { Cases.Add(node); base.ExplicitVisit(node); }
+            public override void ExplicitVisit(SearchedCaseExpression node) { Cases.Add(node); base.ExplicitVisit(node); }
+        }
+
+        private static List<WhenClause> GetWhenClauses(CaseExpression node)
+        {
+            if (node is SimpleCaseExpression sce) return sce.WhenClauses.Cast<WhenClause>().ToList();
+            if (node is SearchedCaseExpression sse) return sse.WhenClauses.Cast<WhenClause>().ToList();
+            return new List<WhenClause>();
+        }
+
+        /// <summary>
+        /// Expands a CASE expression with 2+ WHEN branches onto multiple lines (one
+        /// WHEN per line, ELSE and END each on their own line) - ScriptDom's generator
+        /// never breaks CASE WHEN onto multiple lines on any preset, which otherwise
+        /// leaves nothing for <see cref="AlignCaseWhenThen"/> to align. A CASE with a
+        /// single WHEN branch is left untouched.
+        /// </summary>
+        private static string ExpandCaseWhenThen(string sql, int indentSize)
+        {
+            var parser = new TSql160Parser(initialQuotedIdentifiers: true);
+            TSqlFragment frag;
+            IList<ParseError> errors;
+            using (var reader = new StringReader(sql))
+            {
+                frag = parser.Parse(reader, out errors);
+            }
+            if (frag?.ScriptTokenStream == null) return sql;
+
+            var toks = frag.ScriptTokenStream;
+            var collector = new CaseCollector();
+            frag.Accept(collector);
+
+            var eligible = collector.Cases.Where(c => GetWhenClauses(c).Count >= 2).ToList();
+            if (eligible.Count == 0) return sql;
+
+            int ColumnOf(int tokenIndex)
+            {
+                int col = 0;
+                for (int i = tokenIndex - 1; i >= 0; i--)
+                {
+                    var t = toks[i];
+                    string text = t.Text ?? "";
+                    if (t.TokenType == TSqlTokenType.WhiteSpace && text.IndexOf('\n') >= 0)
+                    {
+                        col += text.Length - text.LastIndexOf('\n') - 1;
+                        return col;
+                    }
+                    col += text.Length;
+                }
+                return col;
+            }
+
+            var replacements = new Dictionary<int, string>();
+
+            foreach (var node in eligible)
+            {
+                var whenClauses = GetWhenClauses(node);
+                int baseCol = ColumnOf(node.FirstTokenIndex);
+                string indent = new string(' ', baseCol + Math.Max(1, indentSize));
+
+                void InsertNewlineBefore(int tokenIndex)
+                {
+                    int wsIndex = tokenIndex - 1;
+                    if (wsIndex >= 0 && toks[wsIndex].TokenType == TSqlTokenType.WhiteSpace)
+                        replacements[wsIndex] = "\r\n" + indent;
+                    else
+                        replacements[tokenIndex] = "\r\n" + indent + (toks[tokenIndex].Text ?? "");
+                }
+
+                foreach (var wc in whenClauses)
+                    InsertNewlineBefore(wc.FirstTokenIndex);
+
+                if (node.ElseExpression != null)
+                {
+                    int elseTokenIndex = node.ElseExpression.FirstTokenIndex;
+                    while (elseTokenIndex > node.FirstTokenIndex && toks[elseTokenIndex].TokenType != TSqlTokenType.Else)
+                        elseTokenIndex--;
+                    InsertNewlineBefore(elseTokenIndex);
+                }
+
+                InsertNewlineBefore(node.LastTokenIndex); // the END token
+            }
+
+            if (replacements.Count == 0) return sql;
+
+            var sb = new StringBuilder(sql.Length + replacements.Count * 8);
+            for (int i = 0; i < toks.Count; i++)
+            {
+                if (toks[i].TokenType == TSqlTokenType.EndOfFile) continue;
+                sb.Append(replacements.TryGetValue(i, out string repl) ? repl : (toks[i].Text ?? ""));
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Generic column-alignment pass shared by JOIN...ON and CASE WHEN...THEN
+        /// alignment: for runs of 2+ consecutive lines whose first token type is in
+        /// <paramref name="lineStartTypes"/> and which contain exactly one occurrence of
+        /// <paramref name="alignTokenType"/> at the line's OWN starting paren depth
+        /// (so a CASE nested inside other parentheses still aligns among its own
+        /// siblings, and a function call within the line doesn't confuse depth
+        /// tracking), pads the shorter lines so that token lands in the same column
+        /// across the run.
+        /// </summary>
+        private static string AlignKeywordColumn(string sql, HashSet<TSqlTokenType> lineStartTypes, TSqlTokenType alignTokenType)
+        {
+            var parser = new TSql160Parser(initialQuotedIdentifiers: true);
+            TSqlFragment frag;
+            IList<ParseError> errors;
+            using (var reader = new StringReader(sql))
+            {
+                frag = parser.Parse(reader, out errors);
+            }
+            if (frag?.ScriptTokenStream == null) return sql;
+
+            var toks = frag.ScriptTokenStream;
+            var alignColumnByLine = new Dictionary<int, int>();
+            var alignCountByLine = new Dictionary<int, int>();
+            var alignTokenIndexByLine = new Dictionary<int, int>();
+            var firstTokenTypeByLine = new Dictionary<int, TSqlTokenType>();
+            var lineBaseDepthByLine = new Dictionary<int, int>();
+
+            int depth = 0;
+            int currentLine = 0;
+            int col = 0;
+            bool atLineStart = true;
+            for (int i = 0; i < toks.Count; i++)
+            {
+                var t = toks[i];
+                if (t.TokenType == TSqlTokenType.EndOfFile) continue;
+                string text = t.Text ?? "";
+
+                if (t.TokenType == TSqlTokenType.WhiteSpace && text.IndexOf('\n') >= 0)
+                {
+                    currentLine++;
+                    col = text.Length - text.LastIndexOf('\n') - 1;
+                    atLineStart = true;
+                    continue;
+                }
+                if (t.TokenType == TSqlTokenType.WhiteSpace)
+                {
+                    col += text.Length;
+                    continue;
+                }
+
+                if (atLineStart)
+                {
+                    firstTokenTypeByLine[currentLine] = t.TokenType;
+                    lineBaseDepthByLine[currentLine] = depth;
+                    atLineStart = false;
+                }
+                int lineBaseDepth = lineBaseDepthByLine.TryGetValue(currentLine, out int bd) ? bd : 0;
+
+                if (t.TokenType == TSqlTokenType.LeftParenthesis) depth++;
+                else if (t.TokenType == TSqlTokenType.RightParenthesis) depth = Math.Max(0, depth - 1);
+                else if (t.TokenType == alignTokenType && depth == lineBaseDepth)
+                {
+                    alignCountByLine[currentLine] = alignCountByLine.TryGetValue(currentLine, out int c) ? c + 1 : 1;
+                    if (!alignColumnByLine.ContainsKey(currentLine))
+                    {
+                        alignColumnByLine[currentLine] = col;
+                        alignTokenIndexByLine[currentLine] = i;
+                    }
+                }
+
+                col += text.Length;
+            }
+
+            var eligibleLines = alignColumnByLine.Keys
+                .Where(l => alignCountByLine[l] == 1 &&
+                            firstTokenTypeByLine.TryGetValue(l, out var ft) && lineStartTypes.Contains(ft))
+                .OrderBy(l => l)
+                .ToList();
+            if (eligibleLines.Count < 2) return sql;
+
+            var targetColumnByLine = new Dictionary<int, int>();
+            int runStart = 0;
+            for (int k = 1; k <= eligibleLines.Count; k++)
+            {
+                bool endOfRun = k == eligibleLines.Count || eligibleLines[k] != eligibleLines[k - 1] + 1;
+                if (endOfRun)
+                {
+                    if (k - runStart >= 2)
+                    {
+                        int maxCol = 0;
+                        for (int m = runStart; m < k; m++)
+                            maxCol = Math.Max(maxCol, alignColumnByLine[eligibleLines[m]]);
+                        for (int m = runStart; m < k; m++)
+                            targetColumnByLine[eligibleLines[m]] = maxCol;
+                    }
+                    runStart = k;
+                }
+            }
+            if (targetColumnByLine.Count == 0) return sql;
+
+            var padBeforeIndex = new Dictionary<int, int>();
+            foreach (var kvp in targetColumnByLine)
+            {
+                int pad = kvp.Value - alignColumnByLine[kvp.Key];
+                if (pad > 0) padBeforeIndex[alignTokenIndexByLine[kvp.Key]] = pad;
+            }
+            if (padBeforeIndex.Count == 0) return sql;
+
+            var sb = new StringBuilder(sql.Length + padBeforeIndex.Count * 4);
+            for (int i = 0; i < toks.Count; i++)
+            {
+                if (toks[i].TokenType == TSqlTokenType.EndOfFile) continue;
+                if (padBeforeIndex.TryGetValue(i, out int pad))
+                    sb.Append(' ', pad);
+                sb.Append(toks[i].Text ?? "");
+            }
+            return sb.ToString();
+        }
+
         /// <summary>
         /// Converts each leading group of <paramref name="indentSize"/> spaces into a tab.
         /// Only affects indentation at the start of lines, never spacing inside a line.
@@ -1260,7 +1605,7 @@ namespace SsmsSqlFormatter.Formatting
         /// Builds a human-readable style guide from the general options,
         /// used to keep the AI engine consistent with the rule-based one.
         /// </summary>
-        public static string DescribeStyle(GeneralOptions o)
+        public static string DescribeStyle(IFormatterOptions o)
         {
             var commaNote = o.Commas == CommaPlacement.Leading
                 ? " Use LEADING commas: in multi-line lists each line after the first starts with a comma."

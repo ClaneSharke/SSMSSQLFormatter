@@ -15,7 +15,7 @@ namespace SsmsSqlFormatter.Tests
                 ":connect localhost\r\n" +
                 "select a,b from t\r\n" +
                 "go\r\n";
-            var opts = new GeneralOptions();
+            var opts = new FormatterSettings();
 
             var res = ScriptDomFormatter.Format(sql, opts);
 
@@ -34,7 +34,7 @@ namespace SsmsSqlFormatter.Tests
                 ":r shared_setup.sql\r\n" +
                 "select 2\r\n" +
                 "go\r\n";
-            var opts = new GeneralOptions();
+            var opts = new FormatterSettings();
 
             var res = ScriptDomFormatter.Format(sql, opts);
 
@@ -46,7 +46,7 @@ namespace SsmsSqlFormatter.Tests
         public void Format_SqlCmdWithGenuineSyntaxError_StillFails()
         {
             var sql = ":setvar DatabaseName \"MyDb\"\r\nselect a, from t\r\n";
-            var opts = new GeneralOptions();
+            var opts = new FormatterSettings();
 
             var res = ScriptDomFormatter.Format(sql, opts);
 
@@ -59,7 +59,7 @@ namespace SsmsSqlFormatter.Tests
             // Regression guard: a plain script with no ':' at all must go through the
             // original fast path untouched by the SQLCMD extraction logic.
             var sql = "select 1";
-            var opts = new GeneralOptions();
+            var opts = new FormatterSettings();
 
             var res = ScriptDomFormatter.Format(sql, opts);
 

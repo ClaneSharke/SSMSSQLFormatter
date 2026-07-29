@@ -47,9 +47,10 @@ namespace SsmsSqlFormatter
         }
 
         /// <summary>
-        /// Renders a unified diff: unchanged lines in the default color, removed
-        /// lines (from the original script) in red with a "- " prefix, added lines
-        /// (from the formatted result) in green with a "+ " prefix.
+        /// Renders a unified, syntax-colored diff: each line gets a pale red/green
+        /// background for removed/added lines (unchanged lines get none), a "-"/"+"/" "
+        /// marker in the matching strong color, and its T-SQL tokens colored by kind
+        /// (keyword, string, number, comment) within that.
         /// </summary>
         private static FlowDocument BuildDiffDocument(string original, string formatted)
         {
@@ -59,30 +60,57 @@ namespace SsmsSqlFormatter
             foreach (var line in LineDiff.Compute(original, formatted))
             {
                 string prefix;
-                Brush brush;
+                Brush markerBrush;
+                Brush lineBackground;
                 switch (line.Op)
                 {
                     case DiffOp.Delete:
                         prefix = "- ";
-                        brush = Brushes.Firebrick;
+                        markerBrush = Brushes.Firebrick;
+                        lineBackground = new SolidColorBrush(Color.FromRgb(0xFF, 0xEB, 0xEE));
                         break;
                     case DiffOp.Insert:
                         prefix = "+ ";
-                        brush = Brushes.SeaGreen;
+                        markerBrush = Brushes.SeaGreen;
+                        lineBackground = new SolidColorBrush(Color.FromRgb(0xE8, 0xF5, 0xE9));
                         break;
                     default:
                         prefix = "  ";
-                        brush = Brushes.Gray;
+                        markerBrush = Brushes.Gray;
+                        lineBackground = null;
                         break;
                 }
 
-                var run = new Run(prefix + line.Text) { Foreground = brush };
-                paragraph.Inlines.Add(run);
+                var markerRun = new Run(prefix) { Foreground = markerBrush, Background = lineBackground };
+                paragraph.Inlines.Add(markerRun);
+
+                foreach (var (text, category) in SqlSyntaxHighlighter.TokenizeLine(line.Text))
+                {
+                    paragraph.Inlines.Add(new Run(text)
+                    {
+                        Foreground = BrushForCategory(category),
+                        Background = lineBackground
+                    });
+                }
+
                 paragraph.Inlines.Add(new LineBreak());
             }
 
             doc.Blocks.Add(paragraph);
             return doc;
+        }
+
+        private static Brush BrushForCategory(SqlTokenCategory category)
+        {
+            switch (category)
+            {
+                case SqlTokenCategory.Keyword: return new SolidColorBrush(Color.FromRgb(0x00, 0x00, 0xFF));
+                case SqlTokenCategory.String: return new SolidColorBrush(Color.FromRgb(0xA3, 0x15, 0x15));
+                case SqlTokenCategory.Number: return new SolidColorBrush(Color.FromRgb(0x09, 0x86, 0x58));
+                case SqlTokenCategory.Comment: return Brushes.Gray;
+                case SqlTokenCategory.Identifier: return Brushes.Black;
+                default: return Brushes.Black;
+            }
         }
     }
 }

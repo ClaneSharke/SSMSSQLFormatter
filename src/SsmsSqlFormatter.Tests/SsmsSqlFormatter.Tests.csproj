@@ -20,6 +20,7 @@
     <Reference Include="System.IO.Compression" />
     <Reference Include="System.IO.Compression.FileSystem" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ScriptDomFormatterTests.cs" />
@@ -34,6 +35,11 @@
     <Compile Include="XlsxWriterTests.cs" />
     <Compile Include="FormatSqlCommandTests.cs" />
     <Compile Include="BatchFormatTests.cs" />
+    <Compile Include="FormatterSettingsSerializerTests.cs" />
+    <Compile Include="FormatterConfigDiscoveryTests.cs" />
+    <Compile Include="SqlSyntaxHighlighterTests.cs" />
+    <Compile Include="AlignJoinAndCaseTests.cs" />
+    <Compile Include="FormatOnPasteListenerTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="NUnit" Version="3.13.3" />

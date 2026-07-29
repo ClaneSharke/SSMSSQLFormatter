@@ -10,7 +10,7 @@ namespace FormatterBench
         static void Main(string[] args)
         {
             var sql = GenerateLargeSql();
-            var options = new GeneralOptions { Preset = StylePreset.Modern, EnableFormattingCache = false };
+            var options = new FormatterSettings { Preset = StylePreset.Modern, EnableFormattingCache = false };
 
             Console.WriteLine("Benchmarking ScriptDomFormatter: cold run (no cache)");
             var sw = Stopwatch.StartNew();

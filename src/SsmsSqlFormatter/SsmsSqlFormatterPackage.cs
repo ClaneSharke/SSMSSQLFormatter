@@ -22,12 +22,22 @@ namespace SsmsSqlFormatter
     {
         public const string PackageGuidString = "a1e5c9f2-3b74-4d68-9e0a-6f2c8d5b1e47";
 
+        /// <summary>
+        /// The loaded package instance, or null before it has loaded. The package loads
+        /// on demand (first command use); MEF components such as
+        /// <see cref="FormatOnPasteTextViewCreationListener"/> run independently of that
+        /// and may need to force a load via IVsShell.LoadPackage the first time they
+        /// actually need it (see FormatOnPasteHandler.GetOrLoadPackage).
+        /// </summary>
+        public static SsmsSqlFormatterPackage Instance { get; private set; }
+
         private IVsRunningDocumentTable _rdt;
         private uint _rdtCookie;
 
         protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {
             await base.InitializeAsync(cancellationToken, progress);
+            Instance = this;
             await FormatSqlCommand.InitializeAsync(this);
 
             await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
@@ -46,6 +56,7 @@ namespace SsmsSqlFormatter
                 _rdt = null;
                 _rdtCookie = 0;
             }
+            if (disposing && Instance == this) Instance = null;
             base.Dispose(disposing);
         }
 

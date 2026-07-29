@@ -80,7 +80,7 @@ namespace SsmsSqlFormatter.Tests
         [Test]
         public void BuildSystemPrompt_IncludesCustomInstructionsWhenPresent()
         {
-            var general = new GeneralOptions();
+            var general = new FormatterSettings();
             var ai = new AiOptions { CustomInstructions = "use leading commas" };
 
             var prompt = AiFormatter.BuildSystemPrompt(general, ai);
@@ -92,7 +92,7 @@ namespace SsmsSqlFormatter.Tests
         [Test]
         public void BuildSystemPrompt_OmitsStyleGuideWhenDisabled()
         {
-            var general = new GeneralOptions();
+            var general = new FormatterSettings();
             var ai = new AiOptions { UseGeneralOptionsAsStyleGuide = false, CustomInstructions = "" };
 
             var prompt = AiFormatter.BuildSystemPrompt(general, ai);
