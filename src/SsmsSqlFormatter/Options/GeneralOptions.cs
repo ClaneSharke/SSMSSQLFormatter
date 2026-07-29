@@ -213,7 +213,7 @@ namespace SsmsSqlFormatter.Options
 
         [Category("5. Blank lines and GO")]
         [DisplayName("Blank lines between statements")]
-        [Description("Exact number of blank lines between consecutive top-level statements within a batch. Statements nested inside BEGIN...END bodies are not affected. A comment above a statement stays attached to it (blank lines go above the comment). -1 = leave as-is.")]
+        [Description("Exact number of blank lines between consecutive statements, at every nesting level - top-level statements in a batch, and statements inside BEGIN...END, IF/WHILE bodies, TRY/CATCH bodies, and procedure/function/trigger bodies. A comment above a statement stays attached to it (blank lines go above the comment). -1 = leave as-is.")]
         public int BlankLinesBetweenStatements { get; set; } = 1;
 
         [Category("5. Blank lines and GO")]

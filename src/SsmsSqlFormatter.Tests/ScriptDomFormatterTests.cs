@@ -81,6 +81,21 @@ namespace SsmsSqlFormatter.Tests
         }
 
         [Test]
+        public void BlankLinesBetweenStatements_AppliesInsideNestedBlocks()
+        {
+            var sql = "CREATE PROCEDURE dbo.Foo AS\r\nBEGIN\r\n" +
+                      "    IF @x = 1\r\n    BEGIN\r\n        SELECT 1;\r\n    END\r\n" +
+                      "    SELECT 2;\r\n" +
+                      "END\r\n";
+            var opts = new GeneralOptions { BlankLinesBetweenStatements = 1 };
+            var res = ScriptDomFormatter.Format(sql, opts);
+            Assert.IsTrue(res.Success, res.ErrorMessage);
+            // A blank line must appear after the nested IF...END block, before the next
+            // statement in the procedure body - not just between top-level statements.
+            StringAssert.IsMatch(@"END\r?\n\r?\n\s*SELECT 2", res.FormattedSql);
+        }
+
+        [Test]
         public void NormalizeGoSpacing_RespectsBlankLines()
         {
             var sql = "SELECT 1\r\nGO\r\nSELECT 2";

@@ -552,11 +552,26 @@ namespace SsmsSqlFormatter.Formatting
             return sql;
         }
 
+        /// <summary>Collects every <see cref="StatementList"/> node in a script - the AST
+        /// building block used for BEGIN...END bodies, IF/WHILE branches, TRY/CATCH
+        /// bodies, and procedure/function/trigger bodies alike - so blank-line spacing
+        /// can be applied uniformly at every nesting level, not just directly inside a batch.</summary>
+        private class StatementListCollector : TSqlFragmentVisitor
+        {
+            public readonly List<StatementList> Lists = new List<StatementList>();
+            public override void ExplicitVisit(StatementList node)
+            {
+                Lists.Add(node);
+                base.ExplicitVisit(node);
+            }
+        }
+
         /// <summary>
-        /// Sets an exact number of blank lines between consecutive top-level statements
-        /// within each batch (AST-based, so statements nested inside BEGIN...END are
-        /// untouched). Trailing comments stay on their statement's line; a comment
-        /// block above a statement stays attached to it, with the blank lines above.
+        /// Sets an exact number of blank lines between consecutive statements, at every
+        /// nesting level (top-level batch statements, and statements inside BEGIN...END,
+        /// IF/WHILE bodies, TRY/CATCH bodies, and procedure/function/trigger bodies).
+        /// Trailing comments stay on their statement's line; a comment block above a
+        /// statement stays attached to it, with the blank lines above.
         /// </summary>
         private static string NormalizeStatementSpacing(string sql, int blankBetween)
         {
@@ -581,11 +596,11 @@ namespace SsmsSqlFormatter.Formatting
                 return r.ToString();
             }
 
-            foreach (var batch in script.Batches)
+            void ProcessList(IList<TSqlStatement> statements)
             {
-                for (int s = 0; s < batch.Statements.Count - 1; s++)
+                for (int s = 0; s < statements.Count - 1; s++)
                 {
-                    int i = batch.Statements[s].LastTokenIndex + 1;
+                    int i = statements[s].LastTokenIndex + 1;
 
                     // Skip past the terminator and anything that should stay on the
                     // statement's own line: semicolon, same-line whitespace, and
@@ -622,6 +637,14 @@ namespace SsmsSqlFormatter.Formatting
                     }
                 }
             }
+
+            foreach (var batch in script.Batches)
+                ProcessList(batch.Statements);
+
+            var collector = new StatementListCollector();
+            script.Accept(collector);
+            foreach (var list in collector.Lists)
+                ProcessList(list.Statements);
 
             if (replacements.Count == 0) return sql;
 
@@ -1247,7 +1270,7 @@ namespace SsmsSqlFormatter.Formatting
                 ? $" Put exactly {o.BlankLinesBeforeGo} blank line(s) before each GO and {o.BlankLinesAfterGo} after."
                 : "";
             var stmtNote = o.BlankLinesBetweenStatements >= 0
-                ? $" Put exactly {o.BlankLinesBetweenStatements} blank line(s) between top-level statements."
+                ? $" Put exactly {o.BlankLinesBetweenStatements} blank line(s) between consecutive statements, including inside BEGIN...END/IF/WHILE/TRY-CATCH bodies."
                 : "";
 
             if (o.Preset == StylePreset.Classic)
