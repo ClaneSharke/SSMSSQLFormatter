@@ -702,7 +702,8 @@ namespace SsmsSqlFormatter
                 "    comma placement, subquery re-indent, blank lines around GO,\r\n" +
                 "    comment preservation, format on save, format on paste, shared\r\n" +
                 "    .sqlformatter.json config.\r\n" +
-                "  • AI Engine — optional Anthropic API key and custom style instructions.\r\n" +
+                "  • AI Engine — Anthropic or Copilot provider, API key/token, and custom\r\n" +
+                "    style instructions.\r\n" +
                 "  • Help — this information inside the options dialog.\r\n" +
                 "\r\n" +
                 "Scripts with syntax errors are never modified; comments are never\r\n" +
@@ -801,8 +802,9 @@ namespace SsmsSqlFormatter
             {
                 if (ai.ConfirmBeforeSending)
                 {
+                    var providerName = ai.Provider == AiProvider.Copilot ? "Copilot" : "Anthropic";
                     var confirm = MessageBox.Show(
-                        "Send this script to the Anthropic API for formatting?\r\n\r\n" +
+                        $"Send this script to the {providerName} API for formatting?\r\n\r\n" +
                         "The script text (including any literals it contains) will leave this machine.",
                         "SQL Formatter — AI engine",
                         MessageBoxButton.YesNo, MessageBoxImage.Question);
@@ -919,8 +921,9 @@ namespace SsmsSqlFormatter
             {
                 if (ai.ConfirmBeforeSending)
                 {
+                    var providerName = ai.Provider == AiProvider.Copilot ? "Copilot" : "Anthropic";
                     var confirm = MessageBox.Show(
-                        "Send this script to the Anthropic API for formatting?\r\n\r\n" +
+                        $"Send this script to the {providerName} API for formatting?\r\n\r\n" +
                         "The script text (including any literals it contains) will leave this machine.",
                         "SQL Formatter — AI engine",
                         MessageBoxButton.YesNo, MessageBoxImage.Question);

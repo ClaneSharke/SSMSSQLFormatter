@@ -57,6 +57,27 @@ namespace SsmsSqlFormatter.Tests
         }
 
         [Test]
+        public void ParseModelOutput_ExtractsTextFromOpenAiStyleChoices()
+        {
+            var json = JObject.Parse(@"{""choices"": [{""message"": {""content"": ""SELECT 3""}}]}");
+            Assert.AreEqual("SELECT 3", AiFormatter.ParseModelOutput(json));
+        }
+
+        [Test]
+        public void BuildRequestPayload_UsesCopilotStyleMessagesWhenProviderIsCopilot()
+        {
+            var general = new FormatterSettings();
+            var ai = new AiOptions { Provider = AiProvider.Copilot, Model = "gpt-4.1", MaxTokens = 2048 };
+
+            var payload = AiFormatter.BuildRequestPayload("SELECT 1", general, ai);
+
+            Assert.AreEqual("gpt-4.1", (string)payload["model"]);
+            Assert.AreEqual(2048, (int)payload["max_tokens"]);
+            Assert.AreEqual("system", (string)((JArray)payload["messages"])[0]["role"]);
+            Assert.AreEqual("user", (string)((JArray)payload["messages"])[1]["role"]);
+        }
+
+        [Test]
         public void ParseModelOutput_ReturnsEmptyForUnrecognizedShape()
         {
             var json = JObject.Parse(@"{""foo"":""bar""}");

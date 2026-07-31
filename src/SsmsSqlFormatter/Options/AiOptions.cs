@@ -3,23 +3,35 @@ using Microsoft.VisualStudio.Shell;
 
 namespace SsmsSqlFormatter.Options
 {
+    public enum AiProvider
+    {
+        Anthropic,
+        Copilot
+    }
+
     public class AiOptions : DialogPage
     {
         private const string ApiKeyCredentialTarget = "SsmsSqlFormatter:AnthropicApiKey";
 
         [Category("1. Connection")]
-        [DisplayName("Anthropic API key")]
-        [Description("Your Anthropic API key (sk-ant-...). Stored securely in Windows Credential Manager for the current user (not in plain text). Get a key at console.anthropic.com.")]
+        [DisplayName("Provider")]
+        [Description("Select which AI backend should format the SQL. Anthropic uses the Messages API; Copilot uses a Copilot-style chat endpoint.")]
+        public AiProvider Provider { get; set; } = AiProvider.Anthropic;
+
+        [Category("1. Connection")]
+        [DisplayName("API key / token")]
+        [Description("Your Anthropic API key (sk-ant-...) or Copilot bearer token. Stored securely in Windows Credential Manager for the current user (not in plain text).")]
         [PasswordPropertyText(true)]
         public string ApiKey { get; set; } = string.Empty;
 
         [Category("1. Connection")]
         [DisplayName("Model")]
-        [Description("Anthropic model ID to use for formatting.")]
+        [Description("Model ID to use for formatting. Anthropic examples: claude-sonnet-4-5. Copilot examples: gpt-4.1 or another chat model supported by your endpoint.")]
         public string Model { get; set; } = "claude-sonnet-4-5";
 
         [Category("1. Connection")]
         [DisplayName("API endpoint")]
+        [Description("Endpoint for the selected provider. Anthropic default is https://api.anthropic.com/v1/messages; Copilot commonly uses a compatible chat endpoint.")]
         public string Endpoint { get; set; } = "https://api.anthropic.com/v1/messages";
 
         [Category("1. Connection")]

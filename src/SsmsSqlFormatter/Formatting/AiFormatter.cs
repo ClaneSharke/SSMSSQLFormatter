@@ -1,5 +1,6 @@
 using System;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -9,9 +10,10 @@ using SsmsSqlFormatter.Options;
 namespace SsmsSqlFormatter.Formatting
 {
     /// <summary>
-    /// Formats T-SQL via the Anthropic Messages API using the user's own API key.
-    /// Advantages over the rule-based engine: preserves comments, follows free-form
-    /// style instructions, and handles vendor-specific constructs gracefully.
+    /// Formats T-SQL via an AI backend (Anthropic's Messages API or a Copilot-style
+    /// chat endpoint - see <see cref="AiOptions.Provider"/>) using the user's own API
+    /// key/token. Advantages over the rule-based engine: preserves comments, follows
+    /// free-form style instructions, and handles vendor-specific constructs gracefully.
     /// </summary>
     public static class AiFormatter
     {
@@ -23,33 +25,18 @@ namespace SsmsSqlFormatter.Formatting
 
             if (string.IsNullOrWhiteSpace(ai.ApiKey))
             {
-                result.ErrorMessage = "No Anthropic API key configured. Set it under Tools > Options > Format T-SQL Script > AI Engine.";
+                var providerName = ai.Provider == AiProvider.Copilot ? "Copilot token" : "Anthropic API key";
+                result.ErrorMessage = $"No {providerName} configured. Set it under Tools > Options > Format T-SQL Script > AI Engine.";
                 return result;
             }
 
-            var systemPrompt = BuildSystemPrompt(general, ai);
-
-            var payload = new JObject
-            {
-                ["model"] = ai.Model,
-                ["max_tokens"] = Math.Max(1024, ai.MaxTokens),
-                ["system"] = systemPrompt,
-                ["messages"] = new JArray
-                {
-                    new JObject
-                    {
-                        ["role"] = "user",
-                        ["content"] = "Format this T-SQL script:\n\n" + sql
-                    }
-                }
-            };
+            var payload = BuildRequestPayload(sql, general, ai);
 
             try
             {
                 using (var request = new HttpRequestMessage(HttpMethod.Post, ai.Endpoint))
                 {
-                    request.Headers.Add("x-api-key", ai.ApiKey);
-                    request.Headers.Add("anthropic-version", "2023-06-01");
+                    ApplyRequestHeaders(request, ai);
                     request.Content = new StringContent(payload.ToString(Formatting_None()), Encoding.UTF8, "application/json");
 
                     using (var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(Math.Max(10, ai.TimeoutSeconds))))
@@ -60,7 +47,8 @@ namespace SsmsSqlFormatter.Formatting
                         if (!response.IsSuccessStatusCode)
                         {
                             var apiError = TryGetApiError(body);
-                            result.ErrorMessage = $"Anthropic API error ({(int)response.StatusCode}): {apiError}";
+                            var providerLabel = ai.Provider == AiProvider.Copilot ? "Copilot API" : "Anthropic API";
+                            result.ErrorMessage = $"{providerLabel} error ({(int)response.StatusCode}): {apiError}";
                             return result;
                         }
 
@@ -91,6 +79,48 @@ namespace SsmsSqlFormatter.Formatting
             }
         }
 
+        internal static JObject BuildRequestPayload(string sql, IFormatterOptions general, AiOptions ai)
+        {
+            var systemPrompt = BuildSystemPrompt(general, ai);
+
+            if (ai.Provider == AiProvider.Copilot)
+            {
+                return new JObject
+                {
+                    ["model"] = ai.Model,
+                    ["max_tokens"] = Math.Max(1024, ai.MaxTokens),
+                    ["messages"] = new JArray
+                    {
+                        new JObject
+                        {
+                            ["role"] = "system",
+                            ["content"] = systemPrompt
+                        },
+                        new JObject
+                        {
+                            ["role"] = "user",
+                            ["content"] = "Format this T-SQL script:\n\n" + sql
+                        }
+                    }
+                };
+            }
+
+            return new JObject
+            {
+                ["model"] = ai.Model,
+                ["max_tokens"] = Math.Max(1024, ai.MaxTokens),
+                ["system"] = systemPrompt,
+                ["messages"] = new JArray
+                {
+                    new JObject
+                    {
+                        ["role"] = "user",
+                        ["content"] = "Format this T-SQL script:\n\n" + sql
+                    }
+                }
+            };
+        }
+
         internal static string BuildSystemPrompt(IFormatterOptions general, AiOptions ai)
         {
             var sb = new StringBuilder();
@@ -119,17 +149,48 @@ namespace SsmsSqlFormatter.Formatting
 
         internal static string ParseModelOutput(JObject json)
         {
-            if (json["content"] is JArray contentArray)
+            if (json["content"] != null && json["content"].Type != JTokenType.Null)
             {
-                var sb = new StringBuilder();
-                foreach (var block in contentArray)
-                {
-                    if ((string)block["type"] == "text")
-                        sb.Append((string)block["text"] ?? string.Empty);
-                }
+                if (json["content"].Type == JTokenType.String)
+                    return (string)json["content"] ?? string.Empty;
 
-                if (sb.Length > 0)
-                    return sb.ToString();
+                if (json["content"].Type == JTokenType.Array)
+                {
+                    var sb = new StringBuilder();
+                    foreach (var block in json["content"])
+                    {
+                        if (block["type"]?.Value<string>() == "text")
+                            sb.Append(block["text"]?.Value<string>() ?? string.Empty);
+                    }
+
+                    if (sb.Length > 0)
+                        return sb.ToString();
+                }
+            }
+
+            if (json["choices"] is JArray choices && choices.Count > 0)
+            {
+                var firstChoice = choices[0];
+                var message = firstChoice["message"];
+                if (message != null)
+                {
+                    var content = message["content"];
+                    if (content?.Type == JTokenType.String)
+                        return content.Value<string>() ?? string.Empty;
+
+                    if (content is JArray contentArray)
+                    {
+                        var sb = new StringBuilder();
+                        foreach (var block in contentArray)
+                        {
+                            if (block["type"]?.Value<string>() == "text")
+                                sb.Append(block["text"]?.Value<string>() ?? string.Empty);
+                        }
+
+                        if (sb.Length > 0)
+                            return sb.ToString();
+                    }
+                }
             }
 
             if (json["completion"] != null)
@@ -177,6 +238,18 @@ namespace SsmsSqlFormatter.Formatting
             {
                 return body;
             }
+        }
+
+        private static void ApplyRequestHeaders(HttpRequestMessage request, AiOptions ai)
+        {
+            if (ai.Provider == AiProvider.Copilot)
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ai.ApiKey);
+                return;
+            }
+
+            request.Headers.Add("x-api-key", ai.ApiKey);
+            request.Headers.Add("anthropic-version", "2023-06-01");
         }
 
         private static Newtonsoft.Json.Formatting Formatting_None() => Newtonsoft.Json.Formatting.None;
