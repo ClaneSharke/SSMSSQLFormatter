@@ -48,7 +48,7 @@ Two engines:
 | Engine | How it works | Pros | Cons |
 |---|---|---|---|
 | **Rule-based** | Microsoft `ScriptDom` parser + script generator (fully offline) | Instant, deterministic, understands all T-SQL | Regenerating from the parse tree can drop/move comments |
-| **AI** | Anthropic Claude API with **your own API key** | Preserves comments, follows free-form style instructions ("leading commas", "align equals signs") | Needs network + API key; script text is sent to the API |
+| **AI** | Anthropic Claude Messages API, or GitHub Copilot / an OpenAI-compatible chat endpoint — pick under **AI Engine → Provider**, with **your own API key or token** | Preserves comments, follows free-form style instructions ("leading commas", "align equals signs") | Needs network + API key/token; script text is sent to the API |
 
 Two built-in style presets — **Classic** (old-format compact: trailing commas, inline JOINs, fewer line breaks) and **Modern** (each column/JOIN/predicate on its own line, aligned bodies) — plus a **Custom** preset where every individual option applies.
 
@@ -114,12 +114,13 @@ With text selected, only the selection is formatted; otherwise the whole documen
 **Tools → Options → SQL Formatter**
 
 - **General**: engine (RuleBased / Ai), style preset (Classic / Modern / Custom), keyword casing, indent size, semicolons, per-clause line breaks, multiline lists, alignment, comment warning.
-- **AI Engine**: Anthropic API key, model, max tokens, timeout, custom style instructions, "use General options as style guide", fallback to rule-based on error, confirm-before-send.
+- **AI Engine**: provider (Anthropic / Copilot), API key or token, model, endpoint, max tokens, timeout, custom style instructions, "use General options as style guide", fallback to rule-based on error, confirm-before-send.
 
 ### AI engine notes
 
-- Get a key at https://console.anthropic.com — API usage is billed to that key separately from any Claude.ai subscription.
-- The key is stored in the SSMS settings registry hive in **plain text**. Don't configure it on shared machines. (Hardening idea: swap the ApiKey property for a DPAPI/`ProtectedData` wrapper or Windows Credential Manager.)
+- **Anthropic**: get a key at https://console.anthropic.com — API usage is billed to that key separately from any Claude.ai subscription.
+- **Copilot**: point **Endpoint** at your Copilot-compatible chat completions endpoint and use a bearer token as the key. Any OpenAI-compatible chat endpoint (`choices[].message.content` response shape) works the same way.
+- The key/token is stored in **Windows Credential Manager** for the current user, not in plain text.
 - Your script text — including any embedded literals/data — is sent to the API. The confirm-before-send prompt is on by default for that reason.
 - For very large scripts, raise **Max output tokens** and **Timeout**.
 
@@ -144,7 +145,7 @@ src/SsmsSqlFormatter/
   source.extension.vsixmanifest – targets Microsoft.VisualStudio.Ssms [21.0,23.0)
   Formatting/
     ScriptDomFormatter.cs      – rule-based engine + Classic/Modern/Custom presets
-    AiFormatter.cs             – Anthropic Messages API client
+    AiFormatter.cs             – Anthropic Messages API / Copilot chat API client
   Options/
     GeneralOptions.cs          – Tools>Options "General" page
     AiOptions.cs               – Tools>Options "AI Engine" page
