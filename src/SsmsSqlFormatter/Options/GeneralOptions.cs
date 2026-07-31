@@ -54,281 +54,281 @@ namespace SsmsSqlFormatter.Options
     public class GeneralOptions : DialogPage, IFormatterOptions
     {
         // ---------- Engine ----------
-        [Category("1. Engine")]
+        [Category("01. Engine")]
         [DisplayName("Formatting engine")]
         [Description("RuleBased = Microsoft ScriptDom parser (offline, instant). Ai = Anthropic Claude API (preserves comments, follows custom instructions; configure under 'AI Engine').")]
         public FormatterEngine Engine { get; set; } = FormatterEngine.RuleBased;
 
-        [Category("1. Engine")]
+        [Category("01. Engine")]
         [DisplayName("Style preset")]
         [Description("Classic = old-format compact style. Modern = new expanded style. Custom = use the individual options below.")]
         public StylePreset Preset { get; set; } = StylePreset.Modern;
 
         // ---------- Casing / basics ----------
-        [Category("2. Basics")]
+        [Category("02. Basics")]
         [DisplayName("Keyword casing")]
         public KeywordCase KeywordCasing { get; set; } = KeywordCase.Uppercase;
 
-        [Category("2. Basics")]
+        [Category("02. Basics")]
         [DisplayName("Built-in function casing")]
         [Description("Casing for built-in function names such as GETDATE, COUNT, ISNULL. Unchanged leaves them as written. Only names immediately followed by '(' are affected, so columns sharing a function name are left alone.")]
         public IdentifierCase FunctionCasing { get; set; } = IdentifierCase.Unchanged;
 
-        [Category("2. Basics")]
+        [Category("02. Basics")]
         [DisplayName("Data type casing")]
         [Description("Casing for data type keywords such as INT, VARCHAR, DATETIME. Unchanged leaves them as the keyword casing produced them.")]
         public IdentifierCase DataTypeCasing { get; set; } = IdentifierCase.Unchanged;
 
-        [Category("2. Basics")]
+        [Category("02. Basics")]
         [DisplayName("Indent size (spaces)")]
         public int IndentationSize { get; set; } = 4;
 
-        [Category("2. Basics")]
+        [Category("02. Basics")]
         [DisplayName("Indent with tabs")]
         [Description("Convert each indent level ('Indent size' spaces) into a tab character.")]
         public bool UseTabsForIndentation { get; set; } = false;
 
-        [Category("2. Basics")]
+        [Category("02. Basics")]
         [DisplayName("Re-indent subqueries")]
         [Description("Guarantees the body of every nested subquery / derived table is indented at least one level per nesting depth. Fixes cases where the formatter leaves subquery clauses flush with the outer query. Only ever adds indentation - lines already indented deeper are left alone.")]
         public bool ReindentSubqueries { get; set; } = true;
 
-        [Category("2. Basics")]
+        [Category("02. Basics")]
         [DisplayName("Comma placement")]
         [Description("Trailing = commas end each line. Leading = commas start the next line (a common style for easy column commenting). Applies to all presets.")]
         public CommaPlacement Commas { get; set; } = CommaPlacement.Trailing;
 
-        [Category("2. Basics")]
+        [Category("02. Basics")]
         [DisplayName("Add semicolons")]
         [Description("Terminate statements with semicolons.")]
         public bool IncludeSemicolons { get; set; } = true;
 
-        [Category("2. Basics")]
+        [Category("02. Basics")]
         [DisplayName("Max line length (0 = off)")]
         [Description("When a top-level comma-separated list (a SELECT/GROUP BY/ORDER BY list kept on one line) exceeds this many characters, wraps it one item per line at the same indentation. Does not apply inside parentheses (IN-lists, function call arguments) - those are left as ScriptDom rendered them. 0 disables wrapping.")]
         public int MaxLineLength { get; set; } = 0;
 
-        [Category("2. Basics")]
+        [Category("02. Basics")]
         [DisplayName("AS keyword on its own line")]
         [Description("Place AS on a new line in views/procedures (Custom preset only).")]
         public bool AsKeywordOnOwnLine { get; set; } = true;
 
         // ---------- Line breaks ----------
-        [Category("3. Line breaks")]
+        [Category("03. Line breaks")]
         [DisplayName("New line before FROM")]
         public bool NewLineBeforeFrom { get; set; } = true;
 
-        [Category("3. Line breaks")]
+        [Category("03. Line breaks")]
         [DisplayName("New line before WHERE")]
         public bool NewLineBeforeWhere { get; set; } = true;
 
-        [Category("3. Line breaks")]
+        [Category("03. Line breaks")]
         [DisplayName("New line before JOIN")]
         public bool NewLineBeforeJoin { get; set; } = true;
 
-        [Category("3. Line breaks")]
+        [Category("03. Line breaks")]
         [DisplayName("New line before GROUP BY")]
         public bool NewLineBeforeGroupBy { get; set; } = true;
 
-        [Category("3. Line breaks")]
+        [Category("03. Line breaks")]
         [DisplayName("New line before ORDER BY")]
         public bool NewLineBeforeOrderBy { get; set; } = true;
 
-        [Category("3. Line breaks")]
+        [Category("03. Line breaks")]
         [DisplayName("New line before HAVING")]
         public bool NewLineBeforeHaving { get; set; } = true;
 
-        [Category("3. Line breaks")]
+        [Category("03. Line breaks")]
         [DisplayName("New line before OUTPUT")]
         public bool NewLineBeforeOutput { get; set; } = true;
 
-        [Category("3. Line breaks")]
+        [Category("03. Line breaks")]
         [DisplayName("New line before OFFSET")]
         public bool NewLineBeforeOffset { get; set; } = true;
 
-        [Category("3. Line breaks")]
+        [Category("03. Line breaks")]
         [DisplayName("New line before ( in multiline lists")]
         [Description("Opening parenthesis of a multiline list goes on its own line.")]
         public bool NewLineBeforeOpenParen { get; set; } = true;
 
-        [Category("3. Line breaks")]
+        [Category("03. Line breaks")]
         [DisplayName("New line before ) in multiline lists")]
         [Description("Closing parenthesis of a multiline list goes on its own line.")]
         public bool NewLineBeforeCloseParen { get; set; } = true;
 
         // ---------- Lists ----------
-        [Category("4. Lists")]
+        [Category("04. Lists")]
         [DisplayName("Multiline SELECT list")]
         [Description("Each selected column on its own line.")]
         public bool MultilineSelectList { get; set; } = true;
 
-        [Category("4. Lists")]
+        [Category("04. Lists")]
         [DisplayName("Multiline WHERE predicates")]
         [Description("Each AND/OR predicate on its own line.")]
         public bool MultilineWherePredicates { get; set; } = true;
 
-        [Category("4. Lists")]
+        [Category("04. Lists")]
         [DisplayName("Multiline INSERT lists")]
         public bool MultilineInsertLists { get; set; } = true;
 
-        [Category("4. Lists")]
+        [Category("04. Lists")]
         [DisplayName("Align clause bodies")]
         [Description("Align the body of clauses (SELECT list, SET clauses, etc.).")]
         public bool AlignClauseBodies { get; set; } = true;
 
-        [Category("4. Lists")]
+        [Category("04. Lists")]
         [DisplayName("Align column definitions")]
         [Description("Align column definition fields in CREATE TABLE.")]
         public bool AlignColumnDefinitions { get; set; } = true;
 
-        [Category("4. Lists")]
+        [Category("04. Lists")]
         [DisplayName("Multiline view columns")]
         [Description("Each column in a view's column list on its own line.")]
         public bool MultilineViewColumns { get; set; } = true;
 
-        [Category("4. Lists")]
+        [Category("04. Lists")]
         [DisplayName("Indent view body")]
         public bool IndentViewBody { get; set; } = true;
 
-        [Category("4. Lists")]
+        [Category("04. Lists")]
         [DisplayName("Indent SET clause")]
         [Description("Indent the SET clause body in UPDATE statements.")]
         public bool IndentSetClause { get; set; } = true;
 
-        [Category("4. Lists")]
+        [Category("04. Lists")]
         [DisplayName("Align '=' in assignments")]
         [Description("In runs of two or more consecutive lines shaped like 'name = expression' (SET clause assignments, old-style 'alias = expr' SELECT items), pads the shorter left-hand sides so every '=' lines up in the same column. A line with more than one top-level '=' (a comparison, not a single assignment) breaks the run and is left alone. Off by default to keep output identical to previous versions.")]
         public bool AlignSetClauseAssignments { get; set; } = false;
 
-        [Category("4. Lists")]
+        [Category("04. Lists")]
         [DisplayName("Align ON in JOIN clauses")]
         [Description("Condenses each JOIN clause onto one line ('JOIN table ON condition' - ScriptDom's generator otherwise always splits these across three lines regardless of preset) and, in runs of two or more consecutive joins, pads the shorter ones so every ON keyword lines up in the same column. Off by default.")]
         public bool AlignJoinConditions { get; set; } = false;
 
-        [Category("4. Lists")]
+        [Category("04. Lists")]
         [DisplayName("Align THEN in CASE expressions")]
         [Description("Expands a CASE expression with 2+ WHEN branches onto multiple lines (ScriptDom's generator otherwise never breaks CASE WHEN onto separate lines) and pads the shorter WHEN conditions so every THEN keyword lines up in the same column. A CASE with a single WHEN branch is left untouched. Off by default.")]
         public bool AlignCaseExpressions { get; set; } = false;
 
         // ---------- Blank lines & GO ----------
-        [Category("5. Blank lines and GO")]
+        [Category("05. Blank lines and GO")]
         [DisplayName("Blank lines before GO")]
         [Description("Exact number of blank lines before each GO batch separator. Set both GO options to -1 to leave GO spacing untouched.")]
         public int BlankLinesBeforeGo { get; set; } = 1;
 
-        [Category("5. Blank lines and GO")]
+        [Category("05. Blank lines and GO")]
         [DisplayName("Blank lines after GO")]
         [Description("Exact number of blank lines after each GO batch separator. Set both GO options to -1 to leave GO spacing untouched.")]
         public int BlankLinesAfterGo { get; set; } = 1;
 
-        [Category("5. Blank lines and GO")]
+        [Category("05. Blank lines and GO")]
         [DisplayName("Blank lines between statements")]
         [Description("Exact number of blank lines between consecutive statements, at every nesting level - top-level statements in a batch, and statements inside BEGIN...END, IF/WHILE bodies, TRY/CATCH bodies, and procedure/function/trigger bodies. A comment above a statement stays attached to it (blank lines go above the comment). -1 = leave as-is.")]
         public int BlankLinesBetweenStatements { get; set; } = 1;
 
-        [Category("5. Blank lines and GO")]
+        [Category("05. Blank lines and GO")]
         [DisplayName("Max consecutive blank lines")]
         [Description("Collapse runs of blank lines anywhere in the script down to this many. -1 = unlimited. Blank lines inside /* */ comments are never touched, and the GO settings above take precedence around GO.")]
         public int MaxConsecutiveBlankLines { get; set; } = 1;
 
-        [Category("5. Blank lines and GO")]
+        [Category("05. Blank lines and GO")]
         [DisplayName("Trim trailing whitespace")]
         [Description("Remove spaces and tabs at the ends of lines.")]
         public bool TrimTrailingWhitespace { get; set; } = true;
 
         // ---------- Copy results for Excel ----------
-        [Category("7. Export results to Excel")]
+        [Category("07. Export results to Excel")]
         [DisplayName("Export format")]
         [Description("Xlsx = a styled workbook. Csv = a comma-separated text file (styling options do not apply).")]
         public ExportFormat ExportAs { get; set; } = ExportFormat.Xlsx;
 
-        [Category("7. Export results to Excel")]
+        [Category("07. Export results to Excel")]
         [DisplayName("Output folder")]
         [Description("Folder for exported files. Leave empty to use the Windows temp folder. The folder is created if it doesn't exist; if it can't be used, the temp folder is used instead.")]
         public string ExportFolder { get; set; } = "";
 
-        [Category("7. Export results to Excel")]
+        [Category("07. Export results to Excel")]
         [DisplayName("Ask where to save")]
         [Description("Show a Save As dialog for each export instead of writing straight to the output folder.")]
         public bool ExportPrompt { get; set; } = false;
 
-        [Category("7. Export results to Excel")]
+        [Category("07. Export results to Excel")]
         [DisplayName("Include query on a separate sheet")]
         [Description("Add a 'Query' worksheet containing the SQL from the active query window, so the workbook records where the data came from. Xlsx only.")]
         public bool ExportIncludeQuery { get; set; } = false;
 
-        [Category("7. Export results to Excel")]
+        [Category("07. Export results to Excel")]
         [DisplayName("Try to copy the grid automatically")]
         [Description("Sends the grid's Copy-with-Headers keystroke before converting. This only works when the results grid still has focus, i.e. when you use the Ctrl+Shift+Alt+X shortcut - clicking a toolbar button or menu item moves focus away, in which case whatever you copied yourself is converted instead.")]
         public bool ExcelSimulateCopyFirst { get; set; } = true;
 
-        [Category("7. Export results to Excel")]
+        [Category("07. Export results to Excel")]
         [DisplayName("First row contains headers")]
         [Description("Format the first copied row as a bold header row. Turn this off if you copied without headers (plain Ctrl+C), so the first data row isn't styled as a header.")]
         public bool ExcelFirstRowIsHeader { get; set; } = true;
 
-        [Category("7. Export results to Excel")]
+        [Category("07. Export results to Excel")]
         [DisplayName("Paste all cells as text")]
         [Description("Marks every data cell as Text so Excel keeps leading zeros and doesn't turn long numbers into scientific notation or ID-like values into dates. Disable to let Excel auto-detect types (numbers become summable).")]
         public bool ExcelForceTextCells { get; set; } = true;
 
-        [Category("7. Export results to Excel")]
+        [Category("07. Export results to Excel")]
         [DisplayName("Paste NULL as empty cells")]
         [Description("Convert the grid's literal 'NULL' text into empty cells when pasting into Excel.")]
         public bool ExcelNullsAsEmpty { get; set; } = false;
 
         // ---------- Excel appearance ----------
-        [Category("8. Excel appearance")]
+        [Category("08. Excel appearance")]
         [DisplayName("Font name")]
         [Description("Font applied to the exported workbook. The dropdown lists standard Windows fonts installed on this machine; another font name can be typed if you have one.")]
         [TypeConverter(typeof(FontNameConverter))]
         public string ExcelFontName { get; set; } = "Calibri";
 
-        [Category("8. Excel appearance")]
+        [Category("08. Excel appearance")]
         [DisplayName("Font size (pt)")]
         [Description("Point size for the exported workbook. Choose from the list or type any size between 6 and 72.")]
         [TypeConverter(typeof(FontSizeConverter))]
         public int ExcelFontSize { get; set; } = 11;
 
-        [Category("8. Excel appearance")]
+        [Category("08. Excel appearance")]
         [DisplayName("Bold header row")]
         public bool ExcelHeaderBold { get; set; } = true;
 
-        [Category("8. Excel appearance")]
+        [Category("08. Excel appearance")]
         [DisplayName("Header background colour")]
         [Description("Background colour of the header row. Click the dropdown for a colour picker.")]
         public Color ExcelHeaderBackColor { get; set; } = ColorTranslator.FromHtml("#D9E1F2");
 
-        [Category("8. Excel appearance")]
+        [Category("08. Excel appearance")]
         [DisplayName("Header text colour")]
         [Description("Text colour of the header row - use white for dark header backgrounds.")]
         public Color ExcelHeaderTextColor { get; set; } = Color.Black;
 
-        [Category("8. Excel appearance")]
+        [Category("08. Excel appearance")]
         [DisplayName("Show cell borders")]
         public bool ExcelShowBorders { get; set; } = true;
 
-        [Category("8. Excel appearance")]
+        [Category("08. Excel appearance")]
         [DisplayName("Border colour")]
         [Description("Colour of the cell borders when 'Show cell borders' is on.")]
         public Color ExcelBorderColor { get; set; } = ColorTranslator.FromHtml("#B4C6E7");
 
-        [Category("8. Excel appearance")]
+        [Category("08. Excel appearance")]
         [DisplayName("Freeze header row")]
         [Description("Keep the header row visible when scrolling through long result sets.")]
         public bool ExcelFreezeHeader { get; set; } = true;
 
-        [Category("8. Excel appearance")]
+        [Category("08. Excel appearance")]
         [DisplayName("Add AutoFilter to headers")]
         [Description("Add Excel filter dropdowns to the header row so results can be filtered and sorted immediately.")]
         public bool ExcelAutoFilter { get; set; } = true;
 
-        [Category("8. Excel appearance")]
+        [Category("08. Excel appearance")]
         [DisplayName("Banded rows")]
         [Description("Shade every second data row for readability.")]
         public bool ExcelBandedRows { get; set; } = false;
 
-        [Category("8. Excel appearance")]
+        [Category("08. Excel appearance")]
         [DisplayName("Band colour")]
         [Description("Shade used for alternate rows when 'Banded rows' is on.")]
         public Color ExcelBandColor { get; set; } = ColorTranslator.FromHtml("#F2F6FC");
@@ -340,28 +340,28 @@ namespace SsmsSqlFormatter.Options
         public bool UseFolderConfig { get; set; } = true;
 
         // ---------- Format on save ----------
-        [Category("9. Format on save")]
+        [Category("09. Format on save")]
         [DisplayName("Format on save")]
         [Description("Automatically formats .sql documents immediately before they are saved (Ctrl+S, Save All, closing a dirty document, etc.), using the settings above. Always uses the rule-based engine, regardless of the 'Formatting engine' setting above, so saving never blocks on a network call or a confirmation dialog. A script that fails to parse is saved untouched.")]
         public bool FormatOnSave { get; set; } = false;
 
-        [Category("9. Format on save")]
+        [Category("09. Format on save")]
         [DisplayName("Format on paste")]
         [Description("Automatically reformats a .sql document right after pasting multi-line text into it, using the settings above. Detects a paste as a single edit that inserts multi-line text - ordinary typing is never affected. Always uses the rule-based engine, for the same reason as format on save. A script that fails to parse is left untouched.")]
         public bool FormatOnPaste { get; set; } = false;
 
         // ---------- Safety ----------
-        [Category("6. Safety")]
+        [Category("06. Safety")]
         [DisplayName("Preserve comments")]
         [Description("Re-insert the original script's comments into the formatted output, keeping them attached to the same code (trailing comments stay at line ends, standalone comments keep their own line). If a comment can't be confidently repositioned it is appended at the end under a banner - never silently deleted.")]
         public bool PreserveComments { get; set; } = true;
 
-        [Category("6. Safety")]
+        [Category("06. Safety")]
         [DisplayName("Enable formatting cache")]
         [Description("When enabled, identical scripts formatted with the same options are cached in-memory to speed repeated formatting. Useful when formatting frequently-repeated scripts. Default = false.")]
         public bool EnableFormattingCache { get; set; } = false;
 
-        [Category("6. Safety")]
+        [Category("06. Safety")]
         [DisplayName("Warn when script contains comments")]
         [Description("Only applies when 'Preserve comments' is OFF: warns that reformatting may drop or move comments and offers the chance to cancel.")]
         public bool WarnOnComments { get; set; } = true;
