@@ -52,9 +52,14 @@ jobs:
           }
 
       - name: Upload VSIX to release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.tag.outputs.tag }}
-          files: src/SsmsSqlFormatter/bin/Release/SsmsSqlFormatter.vsix
+        shell: pwsh
+        run: |
+          $tag  = "${{ steps.tag.outputs.tag }}"
+          $vsix = "src/SsmsSqlFormatter/bin/Release/SsmsSqlFormatter.vsix"
+          gh release view $tag 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --title $tag --notes ""
+          }
+          gh release upload $tag $vsix --clobber
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
