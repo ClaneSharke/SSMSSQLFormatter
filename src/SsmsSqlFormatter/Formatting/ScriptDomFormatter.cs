@@ -359,8 +359,13 @@ namespace SsmsSqlFormatter.Formatting
         /// Walks both token streams in parallel (case-insensitive, tolerant of
         /// added/removed semicolons), attaching each comment to the same code it
         /// preceded in the original: trailing comments stay at line ends, own-line
-        /// comments get their own line at the current indentation. If alignment
-        /// fails, ALL comments are appended under a banner - never silently dropped.
+        /// comments get their own line at the current indentation. Tolerates tokens
+        /// the generator inserts with no counterpart in the original (e.g. an
+        /// implicit "AS" before an alias, or "INNER" before "JOIN") by passing them
+        /// through and retrying alignment on the next token. If alignment still
+        /// can't recover, whatever was already placed inline is kept and every
+        /// remaining comment is appended under a trailing banner - the formatted
+        /// code itself is never truncated and no comment is ever silently dropped.
         /// </summary>
         private static string ReinjectComments(string originalSql, string formattedSql)
         {
@@ -399,6 +404,9 @@ namespace SsmsSqlFormatter.Formatting
             string ws = "";
             int oi = 0;
             var lost = new List<string>();
+            bool desynced = false;
+            int formattedSkipStreak = 0;
+            const int MaxFormattedSkip = 8;
 
             string IndentOf(string w)
             {
@@ -442,16 +450,6 @@ namespace SsmsSqlFormatter.Formatting
                 }
             }
 
-            string BannerFallback()
-            {
-                var rest = new StringBuilder();
-                for (int m = oi; m < items.Count; m++)
-                    if (items[m].IsComment) rest.Append('\n').Append(items[m].Text);
-                foreach (var lc in lost) rest.Append('\n').Append(lc);
-                if (rest.Length == 0) return formattedSql;
-                return formattedSql + "\n\n-- [SQL Formatter] comments from the original script:" + rest;
-            }
-
             foreach (var tok in fmtFrag.ScriptTokenStream)
             {
                 if (tok.TokenType == TSqlTokenType.EndOfFile) continue;
@@ -461,55 +459,76 @@ namespace SsmsSqlFormatter.Formatting
                     continue;
                 }
 
-                // Comments after a statement should land after its semicolon.
-                if (tok.TokenType != TSqlTokenType.Semicolon) EmitPendingComments();
-
-                if (oi < items.Count && !items[oi].IsComment)
+                if (!desynced)
                 {
-                    string expected = items[oi].Text ?? "";
-                    string current = tok.Text ?? "";
-                    if (string.Equals(current, expected, StringComparison.OrdinalIgnoreCase))
+                    // Comments after a statement should land after its semicolon.
+                    if (tok.TokenType != TSqlTokenType.Semicolon) EmitPendingComments();
+
+                    if (oi < items.Count && !items[oi].IsComment)
                     {
-                        oi++;
-                    }
-                    else if (tok.TokenType == TSqlTokenType.Semicolon)
-                    {
-                        // generator-added semicolon: no counterpart in the original
-                    }
-                    else if (expected == ";")
-                    {
-                        oi++;  // original semicolon not emitted by the generator
-                        if (oi < items.Count && !items[oi].IsComment &&
-                            string.Equals(current, items[oi].Text ?? "", StringComparison.OrdinalIgnoreCase))
+                        string expected = items[oi].Text ?? "";
+                        string current = tok.Text ?? "";
+                        if (string.Equals(current, expected, StringComparison.OrdinalIgnoreCase))
+                        {
                             oi++;
-                    }
-                    else
-                    {
-                        // Try to resync within a small window.
-                        int k = oi, hops = 0;
-                        bool found = false;
-                        while (k < items.Count && hops < 4)
-                        {
-                            if (!items[k].IsComment)
-                            {
-                                hops++;
-                                if (string.Equals(items[k].Text ?? "", current, StringComparison.OrdinalIgnoreCase))
-                                {
-                                    found = true;
-                                    break;
-                                }
-                            }
-                            k++;
+                            formattedSkipStreak = 0;
                         }
-                        if (found)
+                        else if (tok.TokenType == TSqlTokenType.Semicolon)
                         {
-                            for (int m = oi; m < k; m++)
-                                if (items[m].IsComment) lost.Add(items[m].Text);
-                            oi = k + 1;
+                            // generator-added semicolon: no counterpart in the original
+                        }
+                        else if (expected == ";")
+                        {
+                            oi++;  // original semicolon not emitted by the generator
+                            formattedSkipStreak = 0;
+                            if (oi < items.Count && !items[oi].IsComment &&
+                                string.Equals(current, items[oi].Text ?? "", StringComparison.OrdinalIgnoreCase))
+                                oi++;
                         }
                         else
                         {
-                            return BannerFallback();
+                            // Maybe the generator dropped an original token (e.g. a
+                            // redundant "ASC" or explicit parentheses) - look a little
+                            // ahead in the original for a match.
+                            int k = oi, hops = 0;
+                            bool found = false;
+                            while (k < items.Count && hops < 4)
+                            {
+                                if (!items[k].IsComment)
+                                {
+                                    hops++;
+                                    if (string.Equals(items[k].Text ?? "", current, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                                k++;
+                            }
+                            if (found)
+                            {
+                                for (int m = oi; m < k; m++)
+                                    if (items[m].IsComment) lost.Add(items[m].Text);
+                                oi = k + 1;
+                                formattedSkipStreak = 0;
+                            }
+                            else if (formattedSkipStreak < MaxFormattedSkip)
+                            {
+                                // Most likely the generator inserted a token with no
+                                // counterpart in the original (e.g. an implicit "AS"
+                                // before an alias, or "INNER" before "JOIN") - pass it
+                                // through as-is and keep trying to resync against the
+                                // same original position on the next token.
+                                formattedSkipStreak++;
+                            }
+                            else
+                            {
+                                // Truly lost the thread. Keep everything placed inline
+                                // so far, stop attempting further alignment, and let
+                                // the rest of the formatted script pass through
+                                // untouched - never truncate the code.
+                                desynced = true;
+                            }
                         }
                     }
                 }
@@ -519,11 +538,16 @@ namespace SsmsSqlFormatter.Formatting
                 sb.Append(tok.Text);
             }
 
-            EmitPendingComments();
+            if (!desynced) EmitPendingComments();
             sb.Append(ws);
+
+            var trailing = new StringBuilder();
             for (; oi < items.Count; oi++)
-                if (items[oi].IsComment) sb.Append('\n').Append(items[oi].Text);
-            foreach (var lc in lost) sb.Append('\n').Append(lc);
+                if (items[oi].IsComment) trailing.Append('\n').Append(items[oi].Text);
+            foreach (var lc in lost) trailing.Append('\n').Append(lc);
+            if (trailing.Length > 0)
+                sb.Append("\n\n-- [SQL Formatter] comments from the original script:").Append(trailing);
+
             return sb.ToString();
         }
 

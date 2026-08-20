@@ -65,6 +65,32 @@ namespace SsmsSqlFormatter.Tests
         }
 
         [Test]
+        public void CommentHandlingInline_SurvivesGeneratorInsertedTokens()
+        {
+            // The generator inserts tokens with no counterpart in the original text
+            // (an implicit "AS" before the alias, "INNER" before "JOIN") - the resync
+            // must pass those through rather than falling back to a trailing banner
+            // or, worse, dropping the comments that were already placed inline.
+            var sql =
+                "-- header comment\r\n" +
+                "select a, b, c -- select list comment\r\n" +
+                "from dbo.MyTable t\r\n" +
+                "-- comment before join\r\n" +
+                "join dbo.Other o on o.id = t.id\r\n" +
+                "where t.x = 1 -- filter comment\r\n" +
+                "and t.y = 2\r\n";
+            var opts = new FormatterSettings { CommentHandling = CommentHandling.Inline };
+            var res = ScriptDomFormatter.Format(sql, opts);
+            Assert.IsTrue(res.Success, res.ErrorMessage);
+            Assert.IsFalse(res.FormattedSql.Contains("[SQL Formatter] comments from the original script"),
+                "Comments should have been resynced inline, not pushed into a trailing banner:\n" + res.FormattedSql);
+            Assert.IsTrue(res.FormattedSql.Contains("-- header comment"));
+            Assert.IsTrue(res.FormattedSql.Contains("-- select list comment"));
+            Assert.IsTrue(res.FormattedSql.Contains("-- comment before join"));
+            Assert.IsTrue(res.FormattedSql.Contains("-- filter comment"));
+        }
+
+        [Test]
         public void LeadingCommas_MovesCommasToLineStart()
         {
             var sql = "SELECT a, b, c FROM t";
