@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SSMS SQL Formatter</title>
-<meta name="description" content="SSMS SQL Formatter is a free, open-source VSIX extension for SQL Server Management Studio 21/22: rule-based or AI-assisted T-SQL formatting, comment-safe reformatting, SELECT * expansion, and one-click export of query results to styled Excel or CSV.">
+<meta name="description" content="SSMS SQL Formatter is a free, open-source VSIX extension for SQL Server Management Studio 21/22: rule-based or AI-assisted T-SQL formatting with full style control, comment-safe reformatting, SELECT * expansion, format-on-save/paste, batch formatting, a CI-ready CLI, and one-click export of query results to styled Excel or CSV.">
 <style>
   :root {
     --black: #070b14;
@@ -255,11 +255,12 @@
     <rect x="18" y="54" width="34" height="6" rx="3" fill="#0b1220"/>
   </svg>
   <h1>SSMS SQL Formatter</h1>
-  <p class="tagline">Format T-SQL directly inside SSMS &mdash; rule-based or AI-assisted, with comment-safe reformatting, SELECT&nbsp;* expansion, and one-click export of query results to styled Excel or CSV.</p>
+  <p class="tagline">Format T-SQL directly inside SSMS &mdash; two engines, full style control, comment-safe reformatting, SELECT&nbsp;* expansion, and one-click export of results to styled Excel or CSV.</p>
   <div class="hero-actions">
-    <a class="store-button" href="https://github.com/ClaneSharke/SSMSSQLFormatter/releases/latest">Download the latest release</a>
+    <a class="store-button" href="https://github.com/ClaneSharke/SSMSSQLFormatter/releases/latest" target="_blank" rel="noopener">Download the latest release</a>
     <a class="secondary-button" href="SSMSSQLFormatter-User-Guide.html">Read the User Guide</a>
-    <a class="secondary-button" href="https://github.com/ClaneSharke/SSMSSQLFormatter">View on GitHub</a>
+    <a class="secondary-button" href="SSMSSQLFormatter-User-Guide.pdf">Download User Guide (PDF)</a>
+    <a class="secondary-button" href="https://github.com/ClaneSharke/SSMSSQLFormatter" target="_blank" rel="noopener">View on GitHub</a>
   </div>
   <div class="demo-grid">
     <div class="demo-card">
@@ -293,12 +294,16 @@ order by o.OrderDate</pre>
 <main>
   <section id="features">
     <h2 class="section-title">What it does</h2>
-    <p class="lede">A VSIX extension for SQL Server Management Studio 21/22 that formats the query window in place, with a standalone CLI for CI. Nothing you didn't ask for ever leaves your machine.</p>
+    <p class="lede">A VSIX extension for SQL Server Management Studio 21/22 that formats the query window in place, automates that formatting as you work, and exports results &mdash; plus a standalone CLI for CI. Nothing you didn't ask for ever leaves your machine.</p>
 
     <div class="feature-grid">
       <div class="feature-card">
         <h3>Two formatting engines</h3>
         <p><strong>Rule-based</strong> (Microsoft ScriptDom) is fully offline and instant &mdash; used for save/paste/batch/CI. <strong>AI</strong> (your own Anthropic or Copilot key) preserves comments exactly and follows free-form style instructions.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Full control over style</h3>
+        <p>Classic or Modern presets, or a fully Custom mix of keyword/function/type casing, indentation, comma placement, per-clause line breaks, multiline lists, alignment for JOINs/CASE/assignments, and blank-line/GO spacing.</p>
       </div>
       <div class="feature-card">
         <h3>Comments are never silently dropped</h3>
@@ -309,16 +314,20 @@ order by o.OrderDate</pre>
         <p>Replaces <code>SELECT *</code> (and <code>alias.*</code>) with an explicit column list resolved from the real table/view structure via your active connection. Leaves it untouched wherever it can't confidently resolve the source.</p>
       </div>
       <div class="feature-card">
-        <h3>Style, your way</h3>
-        <p>Classic or Modern presets, or a fully Custom mix of keyword casing, indentation, comma placement, per-clause line breaks, and alignment for JOINs, CASE, and assignments.</p>
+        <h3>Fits into your workflow</h3>
+        <p>Format on save, format on paste, batch-format a folder of files, or format every open document at once &mdash; each a normal, undoable edit, never a network call.</p>
       </div>
       <div class="feature-card">
         <h3>Export results to Excel or CSV</h3>
         <p>One shortcut turns the results grid into a styled workbook &mdash; bold headers, frozen header row, AutoFilter, banded rows, and text-safe cells so IDs and leading zeros survive.</p>
       </div>
       <div class="feature-card">
-        <h3>CI-friendly by design</h3>
+        <h3>Built for CI</h3>
         <p>A standalone <code>ssmssqlfmt</code> CLI (no SSMS or AI required) gates a PR on "SQL is formatted," and a shared <code>.sqlformatter.json</code> keeps the IDE and CI using the exact same style.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Your settings, portable</h3>
+        <p>Export or import your entire configuration as one JSON file &mdash; share a team style, back up before experimenting, or feed it straight into the CLI.</p>
       </div>
     </div>
   </section>
@@ -326,10 +335,11 @@ order by o.OrderDate</pre>
   <div class="guide-band">
     <div>
       <h2>Want the full reference first?</h2>
-      <p>Every option, shortcut, and setting is covered in the User Guide.</p>
+      <p>Every option, shortcut, and setting is covered in the User Guide &mdash; read it online or keep a PDF copy on hand.</p>
     </div>
     <div class="hero-actions">
       <a class="secondary-button on-paper" href="SSMSSQLFormatter-User-Guide.html">Read the User Guide</a>
+      <a class="secondary-button on-paper" href="SSMSSQLFormatter-User-Guide.pdf">Download as PDF</a>
     </div>
   </div>
 
@@ -337,12 +347,12 @@ order by o.OrderDate</pre>
     <h2>Ready to try it?</h2>
     <p>Download the VSIX from GitHub Releases, or read the full user guide first.</p>
     <div class="hero-actions">
-      <a class="store-button" href="https://github.com/ClaneSharke/SSMSSQLFormatter/releases/latest">Download the latest release</a>
+      <a class="store-button" href="https://github.com/ClaneSharke/SSMSSQLFormatter/releases/latest" target="_blank" rel="noopener">Download the latest release</a>
       <a class="secondary-button" href="SSMSSQLFormatter-User-Guide.html">Read the User Guide</a>
     </div>
   </section>
 </main>
 
-<footer class="pagefoot">Free and open source under the <a href="https://github.com/ClaneSharke/SSMSSQLFormatter/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>. See the <a href="SSMSSQLFormatter-User-Guide.html">User Guide</a> or the <a href="https://github.com/ClaneSharke/SSMSSQLFormatter" target="_blank" rel="noopener">source on GitHub</a>.</footer>
+<footer class="pagefoot">Free and open source under the <a href="https://github.com/ClaneSharke/SSMSSQLFormatter/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>. See the <a href="SSMSSQLFormatter-User-Guide.html">User Guide</a> or <a href="SSMSSQLFormatter-User-Guide.pdf">download it as a PDF</a>.</footer>
 </body>
 </html>

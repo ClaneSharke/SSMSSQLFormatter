@@ -29,4 +29,28 @@ $text = [System.Text.RegularExpressions.Regex]::Replace($text, 'AssemblyFileVers
 Set-Content -Path $asm -Value $text -Encoding UTF8
 Write-Host "Updated AssemblyInfo versions to $Version"
 
+# Keep the User Guide's cover/footer version+date in sync, then regenerate its PDF -
+# see docs\SSMSSQLFormatter-User-Guide.html's own comment on SSF_GUIDE_VERSION for why
+# this is the single source of truth rather than hand-editing the cover/footer text.
+$guide = "docs\SSMSSQLFormatter-User-Guide.html"
+if (Test-Path $guide) {
+    $today = Get-Date -Format "yyyy-MM-dd"
+    $guideText = Get-Content $guide -Raw
+    $guideText = [System.Text.RegularExpressions.Regex]::Replace(
+        $guideText,
+        "var SSF_GUIDE_VERSION = \{ version: '[^']+', updated: '[^']+' \};",
+        "var SSF_GUIDE_VERSION = { version: '$Version', updated: '$today' };")
+    Set-Content -Path $guide -Value $guideText -Encoding UTF8
+    Write-Host "Updated User Guide version to $Version ($today)"
+
+    $pdfScript = Join-Path $PSScriptRoot "generate-user-guide-pdf.ps1"
+    if (Test-Path $pdfScript) {
+        & $pdfScript
+    } else {
+        Write-Warning "generate-user-guide-pdf.ps1 not found - regenerate the PDF manually."
+    }
+} else {
+    Write-Host "No User Guide found at $guide - skipping."
+}
+
 exit 0
