@@ -19,13 +19,25 @@ namespace SsmsSqlFormatter.Formatting
         private const int CommandTimeoutSeconds = 5;
 
         /// <summary>
-        /// Returns the ordered column list for database.schema.table (schema defaults to
-        /// the connection's default schema when null; database defaults to the connection's
-        /// current database when null), or null if it can't be resolved.
+        /// Returns the ordered column list for [server.]database.schema.table (schema
+        /// defaults to the connection's default schema when null; database defaults to the
+        /// connection's current database when null), or null if it can't be resolved.
+        ///
+        /// When <paramref name="server"/> is given (a four-part linked-server reference),
+        /// this queries the linked server's own sys.columns/sys.objects/sys.schemas via a
+        /// plain four-part FROM - no OPENQUERY, no dynamic SQL. That only works when the
+        /// linked server is itself SQL Server; for any other provider (Oracle, ODBC, flat
+        /// file, ...) the query simply fails and this method returns null like any other
+        /// unresolvable table - the caller can't tell "not SQL Server" apart from "table not
+        /// found" or "no permission," and deliberately doesn't need to, since the outcome
+        /// (leave SELECT * untouched) is identical either way. A server given without a
+        /// database is also treated as unresolvable - there's no reliable way to ask a
+        /// linked server for "your default database" through a plain four-part reference.
         /// </summary>
-        public static async Task<List<string>> GetColumnsAsync(string connectionString, string database, string schema, string table)
+        public static async Task<List<string>> GetColumnsAsync(string connectionString, string server, string database, string schema, string table)
         {
             if (string.IsNullOrEmpty(connectionString) || string.IsNullOrEmpty(table)) return null;
+            if (!string.IsNullOrEmpty(server) && string.IsNullOrEmpty(database)) return null;
 
             try
             {
@@ -39,8 +51,16 @@ namespace SsmsSqlFormatter.Formatting
                     // syscolumns, sysindexes, ...) even though they're perfectly queryable.
                     // The catalog views see everything - user tables/views ('U'/'V') and
                     // system objects alike - with the same metadata-visibility permission
-                    // model as INFORMATION_SCHEMA.
-                    string catalogPrefix = string.IsNullOrEmpty(database) ? "" : "[" + database.Replace("]", "]]") + "].";
+                    // model as INFORMATION_SCHEMA. Same reasoning extends naturally to a
+                    // four-part reference: [server].[database].sys.columns is just as valid
+                    // a catalog-view reference as the local, unqualified form.
+                    string catalogPrefix;
+                    if (!string.IsNullOrEmpty(server))
+                        catalogPrefix = "[" + server.Replace("]", "]]") + "].[" + database.Replace("]", "]]") + "].";
+                    else if (!string.IsNullOrEmpty(database))
+                        catalogPrefix = "[" + database.Replace("]", "]]") + "].";
+                    else
+                        catalogPrefix = "";
                     string sql =
                         $"SELECT s.name AS TableSchema, c.name AS ColumnName " +
                         $"FROM {catalogPrefix}sys.columns c " +

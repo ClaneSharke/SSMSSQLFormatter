@@ -130,7 +130,12 @@ format-on-paste, batch formatting, or the CLI, because it needs a live database 
   the whole feature that can't be exercised by CI or an automated agent — only by running inside
   real SSMS with a live connection.
 - `Formatting/SqlSchemaLookup.cs` — the only piece that actually queries a database
-  (`INFORMATION_SCHEMA.COLUMNS`), given a plain ADO.NET connection string.
+  (`sys.columns`/`sys.objects`/`sys.schemas`, not `INFORMATION_SCHEMA.COLUMNS` — the latter
+  excludes the `sys` schema, which would miss compatibility views like `sysobjects`), given a
+  plain ADO.NET connection string. Also resolves four-part linked-server references
+  (`[server].[database].sys.columns`) by querying the linked server's own catalog directly -
+  works when the linked server is itself SQL Server; any other provider fails that query and
+  is treated as unresolvable, same as everything else this can't confidently resolve.
 
 ### Package load
 

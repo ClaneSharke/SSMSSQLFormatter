@@ -27,15 +27,20 @@ namespace SsmsSqlFormatter.Formatting
     /// </summary>
     public interface ISchemaCatalog
     {
-        /// <summary>Returns the ordered column list for a table/view, or null if it can't be resolved.</summary>
-        List<string> TryGetColumns(string database, string schema, string table);
+        /// <summary>Returns the ordered column list for a table/view, or null if it can't be resolved.
+        /// <paramref name="server"/> is null for a local (non-linked-server) reference.</summary>
+        List<string> TryGetColumns(string server, string database, string schema, string table);
     }
 
     /// <summary>
     /// Expands SELECT * (and alias.*) into explicit, ordered column lists resolved from
-    /// real table/view structure - wherever that structure is confidently known. Anything
-    /// it can't resolve (a join to a CTE or derived table, an unknown table, a table with no
-    /// columns reported) is left as SELECT * untouched; never guesses.
+    /// real table/view structure - wherever that structure is confidently known, including
+    /// four-part linked-server references (resolved by querying the linked server's own
+    /// sys.columns/sys.objects/sys.schemas directly - works when the linked server is itself
+    /// SQL Server; anything else fails that query and is treated the same as any other
+    /// unresolvable table). Anything it can't resolve (a join to a CTE or derived table, an
+    /// unknown table, a table with no columns reported) is left as SELECT * untouched; never
+    /// guesses.
     ///
     /// Deliberately does not regenerate the script through ScriptDom's script generator -
     /// that would drop comments (the same reason ScriptDomFormatter needs its own comment
@@ -55,6 +60,7 @@ namespace SsmsSqlFormatter.Formatting
 
         private class TableRef
         {
+            public string Server;
             public string Database;
             public string Schema;
             public string Table;
@@ -100,17 +106,17 @@ namespace SsmsSqlFormatter.Formatting
 
         private class DictionarySchemaCatalog : ISchemaCatalog
         {
-            private readonly Dictionary<(string, string, string), List<string>> _map =
-                new Dictionary<(string, string, string), List<string>>();
+            private readonly Dictionary<(string, string, string, string), List<string>> _map =
+                new Dictionary<(string, string, string, string), List<string>>();
 
-            public void Add(string database, string schema, string table, List<string> columns) =>
-                _map[Key(database, schema, table)] = columns;
+            public void Add(string server, string database, string schema, string table, List<string> columns) =>
+                _map[Key(server, database, schema, table)] = columns;
 
-            public List<string> TryGetColumns(string database, string schema, string table) =>
-                _map.TryGetValue(Key(database, schema, table), out var cols) ? cols : null;
+            public List<string> TryGetColumns(string server, string database, string schema, string table) =>
+                _map.TryGetValue(Key(server, database, schema, table), out var cols) ? cols : null;
 
-            private static (string, string, string) Key(string database, string schema, string table) =>
-                ((database ?? "").ToUpperInvariant(), (schema ?? "").ToUpperInvariant(), (table ?? "").ToUpperInvariant());
+            private static (string, string, string, string) Key(string server, string database, string schema, string table) =>
+                ((server ?? "").ToUpperInvariant(), (database ?? "").ToUpperInvariant(), (schema ?? "").ToUpperInvariant(), (table ?? "").ToUpperInvariant());
         }
 
         /// <summary>
@@ -154,6 +160,7 @@ namespace SsmsSqlFormatter.Formatting
                     }
                     candidateTables.Add(new TableRef
                     {
+                        Server = so.ServerIdentifier?.Value,
                         Database = so.DatabaseIdentifier?.Value,
                         Schema = so.SchemaIdentifier?.Value,
                         Table = tableName,
@@ -184,7 +191,7 @@ namespace SsmsSqlFormatter.Formatting
                 bool allResolved = true;
                 foreach (var t in tablesToExpand)
                 {
-                    var cols = schema.TryGetColumns(t.Database, t.Schema, t.Table);
+                    var cols = schema.TryGetColumns(t.Server, t.Database, t.Schema, t.Table);
                     if (cols == null || cols.Count == 0) { allResolved = false; break; }
                     foreach (var c in cols)
                         columnParts.Add(qualifyColumns ? Bracket(t.EffectiveAlias) + "." + Bracket(c) : Bracket(c));
@@ -215,7 +222,7 @@ namespace SsmsSqlFormatter.Formatting
         /// </summary>
         public static async Task<SelectStarExpandResult> ExpandAsync(
             string sql,
-            Func<string, string, string, Task<List<string>>> columnLookup,
+            Func<string, string, string, string, Task<List<string>>> columnLookup,
             CancellationToken cancellationToken)
         {
             var result = new SelectStarExpandResult { ExpandedSql = sql };
@@ -232,7 +239,7 @@ namespace SsmsSqlFormatter.Formatting
             var tablesCollector = new NamedTableCollector();
             fragment.Accept(tablesCollector);
 
-            var seen = new HashSet<(string, string, string)>();
+            var seen = new HashSet<(string, string, string, string)>();
             var catalog = new DictionarySchemaCatalog();
             foreach (var named in tablesCollector.Tables)
             {
@@ -241,17 +248,18 @@ namespace SsmsSqlFormatter.Formatting
                 if (string.IsNullOrEmpty(tableName)) continue;
                 if (so.SchemaIdentifier == null && cteNames.Contains(tableName)) continue;
 
+                string server = so.ServerIdentifier?.Value;
                 string database = so.DatabaseIdentifier?.Value;
                 string schemaName = so.SchemaIdentifier?.Value;
-                var key = (database ?? "", schemaName ?? "", tableName);
+                var key = (server ?? "", database ?? "", schemaName ?? "", tableName);
                 if (!seen.Add(key)) continue;
 
                 cancellationToken.ThrowIfCancellationRequested();
                 List<string> cols;
-                try { cols = await columnLookup(database, schemaName, tableName).ConfigureAwait(false); }
+                try { cols = await columnLookup(server, database, schemaName, tableName).ConfigureAwait(false); }
                 catch { cols = null; }
                 if (cols != null && cols.Count > 0)
-                    catalog.Add(database, schemaName, tableName, cols);
+                    catalog.Add(server, database, schemaName, tableName, cols);
             }
 
             return RewriteGivenSchema(sql, catalog);

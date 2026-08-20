@@ -60,11 +60,11 @@ namespace SsmsSqlFormatter
         /// now" and either skip it (main Format command) or tell the user why (the dedicated
         /// Expand SELECT * command).
         /// </summary>
-        private static Func<string, string, string, System.Threading.Tasks.Task<List<string>>> BuildSelectStarColumnLookup()
+        private static Func<string, string, string, string, System.Threading.Tasks.Task<List<string>>> BuildSelectStarColumnLookup()
         {
             string connectionString = SsmsConnectionDiscovery.TryGetActiveConnectionString();
             if (connectionString == null) return null;
-            return (database, schema, table) => SqlSchemaLookup.GetColumnsAsync(connectionString, database, schema, table);
+            return (server, database, schema, table) => SqlSchemaLookup.GetColumnsAsync(connectionString, server, database, schema, table);
         }
 
         // Result sets queued by "Add Results as Sheet", exported together as one workbook.
