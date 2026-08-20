@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SSMS SQL Formatter &ndash; User Guide</title>
+<style>
+  :root {
+    --black: #070b14;
+    --ink: #0b1220;
+    --charcoal: #111c2e;
+    --accent: #2f6fed;
+    --accent-soft: #8fb4ff;
+    --paper: #f6f8fc;
+    --stone: #dde3ee;
+    --muted: #57607a;
+    --text: #1b2333;
+    --heading: #0f172a;
+    --stripe: #eef1f8;
+    --note-bg: #eaf0ff;
+    --cover-muted: #c4d2f2;
+  }
+  /* Dark mode - toggled via the button below, which sets/clears data-theme on <html> and
+     remembers the choice in localStorage. --black/--ink/--charcoal/--accent(-soft)/--cover-muted
+     are left alone: the cover, buttons, keycaps and table headers are already light-on-dark and
+     read fine unchanged in both themes, so only the "paper page" tokens need a dark counterpart. */
+  :root[data-theme="dark"] {
+    --paper: #0a0f1a;
+    --text: #dbe2f0;
+    --heading: #f1f5fb;
+    --muted: #98a3bf;
+    --stone: #23304a;
+    --stripe: #111a2c;
+    --note-bg: #142038;
+  }
+  /* @page margin is deliberately 0, not 22mm/16mm - Chromium's print/PDF pipeline never paints
+     a background into the page-margin band (only the content box gets `body`'s background), so
+     a nonzero @page margin always renders as a white strip around every page regardless of
+     theme. The visual margin is recreated below as body padding instead, which IS inside the
+     content box and does get painted - the trade-off is that left/right padding repeats on
+     every printed page (normal box-model behavior) but top/bottom padding only applies at the
+     very start/end of the document flow, not at every internal page break; h1.section-title
+     (which always starts a fresh page) compensates with its own print-only top margin below. */
+  @page { margin: 0; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: Arial, Helvetica, "Segoe UI", sans-serif;
+    color: var(--text);
+    background: var(--paper);
+    font-size: 10.5pt;
+    line-height: 1.45;
+    margin: 0;
+  }
+  @media print {
+    body { padding: 22mm 16mm; }
+  }
+  /* Screen-only margins so the page isn't flush against the browser edges. */
+  @media screen {
+    body {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 28px 40px 60px;
+    }
+  }
+  .theme-toggle {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 50;
+    padding: 8px 14px;
+    color: var(--heading);
+    background: var(--paper);
+    border: 1px solid var(--accent);
+    border-radius: 20px;
+    font-family: Arial, Helvetica, "Segoe UI", sans-serif;
+    font-size: 9pt;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  }
+  .theme-toggle:hover { border-color: var(--accent-soft); }
+  @media print {
+    .theme-toggle { display: none; }
+  }
+  .accent { color: var(--accent); }
+  .cover {
+    height: 240mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: #ffffff;
+    background:
+      radial-gradient(circle at 78% 18%, rgba(143, 180, 255, 0.16), transparent 30%),
+      radial-gradient(circle at 14% 84%, rgba(47, 111, 237, 0.18), transparent 34%),
+      linear-gradient(135deg, var(--black) 0%, var(--charcoal) 50%, var(--black) 100%);
+    page-break-after: always;
+  }
+  .cover .eyebrow {
+    margin: 0 0 16px;
+    color: var(--accent-soft);
+    font-size: 9pt;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+  .cover .badge { width: 84px; height: 84px; margin-bottom: 22px; filter: drop-shadow(0 12px 34px rgba(0,0,0,0.45)); }
+  .cover h1 { font-size: 34pt; margin: 0 0 6px 0; color: #ffffff; font-weight: 900; }
+  .cover .tagline { font-size: 13pt; color: var(--cover-muted); margin-bottom: 30px; max-width: 500px; }
+  .cover .meta { font-size: 10pt; color: var(--cover-muted); }
+  .cover .meta strong { color: var(--accent-soft); }
+  .cover .meta a { color: var(--accent-soft); text-decoration: none; }
+  .cover .meta a:hover { text-decoration: underline; }
+  .store-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 28px;
+    padding: 11px 24px;
+    color: var(--black);
+    background: linear-gradient(135deg, var(--accent-soft), var(--accent));
+    border-radius: 6px;
+    font-size: 10.5pt;
+    font-weight: 900;
+    text-decoration: none;
+  }
+  .pdf-link {
+    display: block;
+    margin-top: 14px;
+    color: var(--cover-muted);
+    font-size: 9pt;
+    text-decoration: none;
+  }
+  .pdf-link:hover { color: var(--accent-soft); }
+  @media print {
+    .pdf-link { display: none; }
+  }
+
+  h1.section-title {
+    font-size: 20pt;
+    color: var(--heading);
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 6px;
+    margin: 0 0 14px 0;
+    page-break-before: always;
+  }
+  /* Restores the visual top margin at each forced page break now that @page no longer supplies
+     one (see the @page/body comment above) - deliberately placed after the base rule, since both
+     have the same specificity and source order decides the winner in that case. */
+  @media print {
+    h1.section-title { margin-top: 22mm; }
+  }
+  h1.section-title:first-of-type, h1.section-title.no-break { page-break-before: auto; }
+  h2 {
+    font-size: 13.5pt;
+    color: var(--heading);
+    margin: 20px 0 6px 0;
+    border-left: 4px solid var(--accent);
+    padding-left: 8px;
+  }
+  h3 {
+    font-size: 11.5pt;
+    color: var(--heading);
+    margin: 14px 0 4px 0;
+  }
+  p { margin: 4px 0 10px 0; }
+  .lede { font-size: 11.5pt; color: var(--muted); }
+
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 16px 0; }
+  @media print {
+    /* Keep each reference table on one page rather than splitting mid-table at a page break -
+       falls back to a normal break only if a table is taller than a whole page. tr avoids at
+       least cutting a single row in half if that fallback ever kicks in. */
+    table { break-inside: avoid; page-break-inside: avoid; }
+    tr { break-inside: avoid; page-break-inside: avoid; }
+  }
+  th, td { border: 1px solid var(--stone); padding: 5px 8px; text-align: left; vertical-align: top; font-size: 9.8pt; }
+  th { background: var(--black); color: var(--accent-soft); font-weight: 700; }
+  tr:nth-child(even) td { background: var(--stripe); }
+
+  .keycap {
+    display: inline-block;
+    font-family: Consolas, monospace;
+    background: var(--black);
+    color: var(--accent-soft);
+    border-radius: 4px;
+    padding: 1px 7px;
+    font-size: 9.5pt;
+    white-space: nowrap;
+  }
+  code {
+    font-family: Consolas, monospace;
+    background: var(--stripe);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 9.5pt;
+  }
+  pre {
+    background: var(--black);
+    color: var(--accent-soft);
+    border-radius: 6px;
+    padding: 10px 14px;
+    overflow-x: auto;
+    font-family: Consolas, monospace;
+    font-size: 9.3pt;
+    line-height: 1.5;
+  }
+  .note {
+    background: var(--note-bg);
+    border-left: 4px solid var(--accent);
+    padding: 8px 12px;
+    margin: 10px 0;
+    font-size: 9.8pt;
+  }
+  .feature { break-inside: avoid; margin-bottom: 10px; }
+  .feature .name { font-weight: 700; color: var(--heading); }
+  ul { margin: 4px 0 10px 22px; padding: 0; }
+  ol { margin: 4px 0 10px 22px; padding: 0; }
+  li { margin-bottom: 3px; }
+  .cheat-page { page-break-after: always; }
+  .footnote { font-size: 9pt; color: var(--muted); }
+  .cheat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 26px; }
+  .toc a { color: var(--heading); text-decoration: none; }
+  .toc-row { display: flex; justify-content: space-between; border-bottom: 1px dotted var(--stone); padding: 3px 0; font-size: 10.5pt; }
+  footer.pagefoot { font-size: 8pt; color: var(--muted); margin-top: 30px; }
+  footer.pagefoot a { color: var(--accent); font-weight: 700; text-decoration: none; }
+</style>
+<script>
+  (function () {
+    var stored = localStorage.getItem('ssmssqlfmt-guide-theme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (stored === 'dark' || (!stored && prefersDark)) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  })();
+</script>
+</head>
+<body>
+<button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle dark mode">Dark mode</button>
+<script>
+  (function () {
+    var btn = document.getElementById('themeToggle');
+    function isDark() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
+    function updateLabel() { btn.textContent = isDark() ? 'Light mode' : 'Dark mode'; }
+    updateLabel();
+    btn.addEventListener('click', function () {
+      if (isDark()) {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem('ssmssqlfmt-guide-theme', 'light');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        localStorage.setItem('ssmssqlfmt-guide-theme', 'dark');
+      }
+      updateLabel();
+    });
+  })();
+</script>
+
+<!-- COVER -->
+<div class="cover">
+  <p class="eyebrow">For SQL Server Management Studio 21 / 22</p>
+  <svg class="badge" viewBox="0 0 84 84" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SSMS SQL Formatter">
+    <defs>
+      <linearGradient id="coverBadgeGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#8fb4ff"/>
+        <stop offset="1" stop-color="#2f6fed"/>
+      </linearGradient>
+    </defs>
+    <rect width="84" height="84" rx="18" fill="url(#coverBadgeGrad)"/>
+    <rect x="18" y="24" width="26" height="6" rx="3" fill="#0b1220"/>
+    <rect x="26" y="39" width="40" height="6" rx="3" fill="#0b1220"/>
+    <rect x="18" y="54" width="34" height="6" rx="3" fill="#0b1220"/>
+  </svg>
+  <h1>SSMS SQL Formatter</h1>
+  <div class="tagline">User Guide &amp; Reference &mdash; rule-based and AI-assisted T-SQL formatting, comment handling, SELECT&nbsp;* expansion, and Excel/CSV export for SQL Server Management Studio.</div>
+  <div class="meta">Version <strong class="ssf-version">2.8.1</strong> &nbsp;&bull;&nbsp; Updated <span class="ssf-updated">2026-08-20</span> &nbsp;&bull;&nbsp; <a href="https://github.com/ClaneSharke/SSMSSQLFormatter" target="_blank" rel="noopener">github.com/ClaneSharke/SSMSSQLFormatter</a></div>
+  <a class="store-button" href="https://github.com/ClaneSharke/SSMSSQLFormatter/releases/latest">Download the latest release</a>
+  <a class="pdf-link" href="SSMSSQLFormatter-Product-Page.html">&#8592; Back to the product page</a>
+</div>
+
+<!-- TABLE OF CONTENTS -->
+<h1 class="section-title no-break">Contents</h1>
+<div class="toc">
+  <div class="toc-row"><a href="#quick-reference">1. Quick reference</a><span>3</span></div>
+  <div class="toc-row"><a href="#getting-started">2. Getting started</a><span>4</span></div>
+  <div class="toc-row"><a href="#engines">3. Formatting engines</a><span>4</span></div>
+  <div class="toc-row"><a href="#basics">4. Style presets &amp; basics</a><span>5</span></div>
+  <div class="toc-row"><a href="#line-breaks-lists">5. Line breaks, lists &amp; alignment</a><span>6</span></div>
+  <div class="toc-row"><a href="#blank-lines">6. Blank lines &amp; GO</a><span>7</span></div>
+  <div class="toc-row"><a href="#comments">7. Comment handling</a><span>7</span></div>
+  <div class="toc-row"><a href="#select-star">8. Expand SELECT *</a><span>8</span></div>
+  <div class="toc-row"><a href="#automation">9. Format on save &amp; format on paste</a><span>8</span></div>
+  <div class="toc-row"><a href="#batch-cli">10. Batch formatting &amp; the CLI</a><span>9</span></div>
+  <div class="toc-row"><a href="#shared-config">11. Shared team config</a><span>9</span></div>
+  <div class="toc-row"><a href="#excel-export">12. Exporting results to Excel &amp; CSV</a><span>10</span></div>
+  <div class="toc-row"><a href="#ai-engine">13. AI Engine settings</a><span>11</span></div>
+  <div class="toc-row"><a href="#import-export-settings">14. Export / Import Formatter Settings</a><span>11</span></div>
+  <div class="toc-row"><a href="#tips-troubleshooting">15. Tips &amp; troubleshooting</a><span>12</span></div>
+</div>
+
+<!-- QUICK REFERENCE -->
+<h1 class="section-title" id="quick-reference">1. Quick reference</h1>
+<p class="lede">The extension only defines 4 global keyboard shortcuts &mdash; everything else lives in the <strong>Tools</strong> menu (or right-click in the editor for Format T-SQL Script).</p>
+
+<div class="cheat-grid">
+<table>
+<tr><th>Shortcut</th><th>Action</th></tr>
+<tr><td><span class="keycap">Ctrl+Shift+Alt+F</span></td><td>Format T-SQL Script</td></tr>
+<tr><td><span class="keycap">Ctrl+Shift+Alt+P</span></td><td>Preview Format</td></tr>
+<tr><td><span class="keycap">Ctrl+Shift+Alt+X</span></td><td>Export Results to Excel</td></tr>
+<tr><td><span class="keycap">Ctrl+Shift+Alt+A</span></td><td>Add Results as Sheet</td></tr>
+</table>
+<table>
+<tr><th>Tools menu (no shortcut)</th><th>Action</th></tr>
+<tr><td>Format T-SQL Script Help</td><td>Usage summary + link to docs, shown inside SSMS</td></tr>
+<tr><td>Open Results in Excel</td><td>Write copied results to a temp workbook and open it</td></tr>
+<tr><td>Expand SELECT *</td><td>Resolve SELECT * to explicit columns, with preview</td></tr>
+<tr><td>Format Files&hellip;</td><td>Format one or more .sql files on disk</td></tr>
+<tr><td>Format All Open Files</td><td>Format every open .sql document, one undo per window</td></tr>
+<tr><td>Export / Import Formatter Settings</td><td>Save or load the whole configuration as JSON</td></tr>
+</table>
+</div>
+<p class="footnote">With text selected, Format T-SQL Script and Preview Format apply to the selection only; otherwise the whole document. Ctrl+Z always undoes a format as one step.</p>
+
+<!-- GETTING STARTED -->
+<h1 class="section-title" id="getting-started">2. Getting started</h1>
+<p>SSMS doesn't have an extensions marketplace, so installation is manual: download <code>SsmsSqlFormatter.vsix</code> from the <a href="https://github.com/ClaneSharke/SSMSSQLFormatter/releases/latest" target="_blank" rel="noopener">latest GitHub release</a>, double-click it (the installer should list "SQL Server Management Studio 21/22" as a target &mdash; tick it and install), then restart SSMS. If the installer doesn't offer SSMS as a target, run <code>VSIXInstaller.exe</code> directly against the SSMS install folder &mdash; see the README for the exact command.</p>
+<p>Once installed, open a query window and press <span class="keycap">Ctrl+Shift+Alt+F</span>, right-click &rarr; <strong>Format T-SQL Script</strong>, or use the Tools menu. With text selected, only the selection is formatted; otherwise the whole document. The change lands as a single undo step, so <span class="keycap">Ctrl+Z</span> reverts the entire format in one press.</p>
+<div class="note">A script that fails to parse is always left completely untouched &mdash; you'll see the parse error with line/column instead of a partially-mangled file. This applies everywhere: the main command, format-on-save, format-on-paste, batch formatting, and the CLI.</div>
+<p>All settings live under <strong>Tools &rarr; Options &rarr; Format T-SQL Script</strong> (General and AI Engine pages). A <strong>Format T-SQL Script Help</strong> entry in the Tools menu shows a quick usage summary without leaving SSMS.</p>
+<p class="footnote">Microsoft does not officially support extensions in SSMS 21/22 &mdash; they're tolerated and widely used, but if SSMS misbehaves with an extension installed, Microsoft won't help. Keep the VSIX handy so you can uninstall via VSIXInstaller if needed.</p>
+
+<!-- ENGINES -->
+<h1 class="section-title" id="engines">3. Formatting engines</h1>
+<p>Set under <strong>Tools &rarr; Options &rarr; General &rarr; Formatting engine</strong>. Everything except the interactive Format T-SQL Script command (and Expand SELECT *) always uses Rule-based, regardless of this setting.</p>
+<table>
+<tr><th>Engine</th><th>How it works</th><th>Strengths</th><th>Trade-offs</th></tr>
+<tr><td><strong>Rule-based</strong></td><td>Microsoft's ScriptDom parser + script generator, fully offline</td><td>Instant, deterministic, understands all T-SQL</td><td>Regenerating from the parse tree loses comments on its own &mdash; see Comment handling</td></tr>
+<tr><td><strong>AI</strong></td><td>Anthropic Claude Messages API, or GitHub Copilot / any OpenAI-compatible chat endpoint, using your own key or token</td><td>Preserves comments exactly, follows free-form style instructions ("leading commas", "align equals signs")</td><td>Needs network + a key/token; script text is sent to the provider</td></tr>
+</table>
+<p>Two built-in style presets apply to the Rule-based engine (set under <strong>Style preset</strong>): <strong>Classic</strong> (old-format compact &mdash; trailing commas, inline JOINs, fewer line breaks) and <strong>Modern</strong> (each column/JOIN/predicate on its own line, aligned bodies). Choose <strong>Custom</strong> to control every individual option yourself &mdash; see the next section.</p>
+
+<!-- BASICS -->
+<h1 class="section-title" id="basics">4. Style presets &amp; basics</h1>
+<p>These live in <strong>Tools &rarr; Options &rarr; General</strong>, category <strong>02. Basics</strong>. They only take effect when Style preset is <strong>Custom</strong> &mdash; Classic and Modern use their own built-in combinations.</p>
+<table>
+<tr><th>Option</th><th>What it does</th></tr>
+<tr><td>Keyword casing</td><td>Uppercase, Lowercase, or PascalCase for T-SQL keywords.</td></tr>
+<tr><td>Built-in function casing</td><td>Casing for built-in function names (GETDATE, COUNT, ISNULL&hellip;). Only names immediately followed by '(' are affected, so a column sharing a function's name is left alone.</td></tr>
+<tr><td>Data type casing</td><td>Casing for data type keywords (INT, VARCHAR, DATETIME&hellip;).</td></tr>
+<tr><td>Indent size (spaces)</td><td>Default 4.</td></tr>
+<tr><td>Indent with tabs</td><td>Converts each indent level into a tab character.</td></tr>
+<tr><td>Re-indent subqueries</td><td>Guarantees every nested subquery/derived table is indented at least one level per nesting depth. Only ever adds indentation.</td></tr>
+<tr><td>Comma placement</td><td>Trailing (end of line) or Leading (start of next line &mdash; handy for easy column commenting). Applies to every preset.</td></tr>
+<tr><td>Add semicolons</td><td>Terminate statements with semicolons.</td></tr>
+<tr><td>Max line length (0 = off)</td><td>Wraps a top-level comma-separated list (SELECT/GROUP BY/ORDER BY) one item per line once it exceeds this many characters. Doesn't apply inside parentheses (IN-lists, function arguments).</td></tr>
+<tr><td>AS keyword on its own line</td><td>Places AS on a new line in views/procedures (Custom preset only).</td></tr>
+</table>
+
+<!-- LINE BREAKS & LISTS -->
+<h1 class="section-title" id="line-breaks-lists">5. Line breaks, lists &amp; alignment</h1>
+<h2>03. Line breaks (Custom preset only)</h2>
+<p>Each of these independently controls whether that clause starts on a new line: <strong>New line before FROM / WHERE / JOIN / GROUP BY / ORDER BY / HAVING / OUTPUT / OFFSET</strong>, plus <strong>New line before ( / )</strong> for the opening and closing parenthesis of a multiline list. All default to on.</p>
+<h2>04. Lists</h2>
+<table>
+<tr><th>Option</th><th>What it does</th></tr>
+<tr><td>Multiline SELECT list</td><td>Each selected column on its own line.</td></tr>
+<tr><td>Multiline WHERE predicates</td><td>Each AND/OR predicate on its own line.</td></tr>
+<tr><td>Multiline INSERT lists</td><td>Same, for INSERT column/value lists.</td></tr>
+<tr><td>Align clause bodies</td><td>Aligns the body of clauses (SELECT list, SET clauses, etc.).</td></tr>
+<tr><td>Align column definitions</td><td>Aligns column definition fields in CREATE TABLE.</td></tr>
+<tr><td>Multiline view columns</td><td>Each column in a view's column list on its own line.</td></tr>
+<tr><td>Indent view body / Indent SET clause</td><td>Indents the body of a view, or an UPDATE statement's SET clause.</td></tr>
+<tr><td>Align '=' in assignments <em>(off by default)</em></td><td>In runs of 2+ consecutive "name = expression" lines (SET clauses, old-style SELECT aliasing), pads the shorter left-hand sides so every '=' lines up. A line with more than one top-level '=' (a comparison, not an assignment) breaks the run and is left alone.</td></tr>
+<tr><td>Align ON in JOIN clauses <em>(off by default)</em></td><td>Condenses each JOIN onto one line ("JOIN table ON condition" &mdash; ScriptDom's generator otherwise always splits this across three lines) and, in runs of 2+ consecutive joins, pads the shorter ones so every ON lines up.</td></tr>
+<tr><td>Align THEN in CASE expressions <em>(off by default)</em></td><td>Expands a CASE with 2+ WHEN branches onto multiple lines (ScriptDom never does this on its own) and pads the shorter conditions so every THEN lines up. A single-branch CASE is left untouched.</td></tr>
+</table>
+
+<!-- BLANK LINES -->
+<h1 class="section-title" id="blank-lines">6. Blank lines &amp; GO</h1>
+<p>Category <strong>05. Blank lines and GO</strong>. Every count below accepts <strong>-1</strong> to mean "leave as-is."</p>
+<table>
+<tr><th>Option</th><th>What it does</th></tr>
+<tr><td>Blank lines before / after GO</td><td>Exact blank-line count around each GO batch separator. Set both to -1 to leave GO spacing untouched entirely.</td></tr>
+<tr><td>Blank lines between statements</td><td>Exact blank-line count between consecutive statements, at every nesting level &mdash; top-level batch statements and statements inside BEGIN&hellip;END, IF/WHILE, TRY/CATCH, and procedure/function/trigger bodies. A comment above a statement stays attached to it (blank lines go above the comment, not between it and the statement).</td></tr>
+<tr><td>Max consecutive blank lines</td><td>Collapses runs of blank lines anywhere down to this many (-1 = unlimited). Never touches blank lines inside /* */ comments; the GO settings above take precedence around GO.</td></tr>
+<tr><td>Trim trailing whitespace</td><td>Removes spaces/tabs at line ends.</td></tr>
+</table>
+
+<!-- COMMENTS -->
+<h1 class="section-title" id="comments">7. Comment handling</h1>
+<p>The rule-based engine regenerates the script from its parse tree, which doesn't retain comments on its own &mdash; <strong>Comment handling</strong> (category <strong>06. Safety</strong>) controls what happens to them instead. Comments are <em>never</em> silently deleted by default.</p>
+<table>
+<tr><th>Mode</th><th>Behavior</th></tr>
+<tr><td><strong>Inline</strong> <em>(default)</em></td><td>Re-attaches each comment to the same code it was next to &mdash; trailing comments stay at line ends, standalone comments keep their own line. If a comment can't be confidently repositioned, it's appended at the end under a banner instead of being dropped.</td></tr>
+<tr><td><strong>MoveToEnd</strong></td><td>Strips every comment out of its original position and collects them all at the end of the script, in their original order.</td></tr>
+<tr><td><strong>Discard</strong></td><td>Drops comments entirely. <strong>Warn when script contains comments</strong> (on by default) shows a confirmation before this happens.</td></tr>
+</table>
+<p>The AI engine always preserves comments exactly, regardless of this setting. A separate <strong>Enable formatting cache</strong> option (off by default, also under 06. Safety) caches identical script+settings combinations in memory to speed up repeated formatting.</p>
+
+<!-- SELECT * -->
+<h1 class="section-title" id="select-star">8. Expand SELECT *</h1>
+<p>Replaces <code>SELECT *</code> (and <code>alias.*</code>) with an explicit, ordered column list resolved from the real table/view structure &mdash; using whatever database the active query window is already connected to, so there's nothing extra to configure. Anywhere it can't confidently resolve the source, it leaves that <code>SELECT *</code> untouched, decided independently for each occurrence in the script &mdash; it never guesses.</p>
+<h2>Two ways to use it</h2>
+<ul>
+  <li>Turn on <strong>Expand SELECT * when formatting</strong> under <strong>Tools &rarr; Options &rarr; General</strong> (category <strong>11. SELECT * expansion</strong>, off by default) to have it run automatically as part of Format T-SQL Script.</li>
+  <li>Or run <strong>Tools &rarr; Expand SELECT *</strong> directly at any time, regardless of that setting &mdash; it shows a preview before applying, the same as Preview Format.</li>
+</ul>
+<div class="note">Requires the query window to actually be connected to a database. If no connection can be determined, the command tells you so and nothing changes.</div>
+<h2>What it can and can't resolve</h2>
+<p>Resolves plain base tables and views reachable through the connection &mdash; including old-style system compatibility views like <code>sysobjects</code>. It does <strong>not</strong> resolve: CTEs, derived tables/subqueries, table-valued functions, temp tables, table variables, synonyms, or cross-server (4-part) names &mdash; any of these are simply left as <code>SELECT *</code>. Windows/Integrated Authentication connections are the reliable case; SQL Server Authentication connections may not always be resolvable.</p>
+<p class="footnote">Interactive only &mdash; this never runs on format-on-save, format-on-paste, batch formatting, or the CLI, since it requires a live database connection.</p>
+
+<!-- AUTOMATION -->
+<h1 class="section-title" id="automation">9. Format on save &amp; format on paste</h1>
+<div class="feature">
+  <div class="name">Format on save</div>
+  <p>Automatically formats a .sql document immediately before it's written to disk (Ctrl+S, Save All, closing a dirty document, etc.), using your General settings. Always uses the Rule-based engine &mdash; never AI &mdash; so saving is never delayed by a network call or a confirmation prompt. A script that fails to parse is saved untouched.</p>
+</div>
+<div class="feature">
+  <div class="name">Format on paste</div>
+  <p>Automatically reformats a .sql document right after pasting multi-line text into it. Detected as a single edit that inserts multi-line text, so ordinary typing is never affected. Same Rule-based-only, parse-failures-left-untouched behavior as format on save.</p>
+</div>
+<p>Both are off by default &mdash; turn them on under <strong>Tools &rarr; Options &rarr; General</strong> (category <strong>09. Format on save</strong>).</p>
+
+<!-- BATCH & CLI -->
+<h1 class="section-title" id="batch-cli">10. Batch formatting &amp; the CLI</h1>
+<div class="feature">
+  <div class="name">Format Files&hellip;</div>
+  <p>Tools menu &rarr; pick one or more .sql files and format them on disk in place (Rule-based engine, original file encoding preserved). A file that fails to parse is left untouched and reported at the end.</p>
+</div>
+<div class="feature">
+  <div class="name">Format All Open Files</div>
+  <p>Formats every currently-open .sql document in place. Each is a normal editor edit &mdash; Ctrl+Z in that window undoes it &mdash; and nothing is written to disk unless you save afterward.</p>
+</div>
+<h2>Command line (CI)</h2>
+<p><code>tools/SsmsSqlFormatter.Cli</code> builds a standalone <code>ssmssqlfmt.exe</code> &mdash; Rule-based engine only, no AI, no SSMS or Visual Studio install required &mdash; for gating a build or PR on "SQL is formatted":</p>
+<pre>ssmssqlfmt check &lt;file-or-directory...&gt; [--config settings.json]   # reports what would change, exits 1 if anything would
+ssmssqlfmt format &lt;file-or-directory...&gt; [--config settings.json]  # formats in place, same as Format Files...</pre>
+<p>A directory argument is searched recursively for <code>*.sql</code> files. <code>--config</code> takes the same JSON produced by <strong>Export Formatter Settings</strong>, so a team can share one style file between the IDE and CI. Example GitHub Actions step:</p>
+<pre>- name: Check SQL formatting
+  run: tools\SsmsSqlFormatter.Cli\bin\Release\net48\ssmssqlfmt.exe check sql\ --config .sqlformatter.json</pre>
+
+<!-- SHARED CONFIG -->
+<h1 class="section-title" id="shared-config">11. Shared team config</h1>
+<p>Drop a <code>.sqlformatter.json</code> file (same format produced by <strong>Export Formatter Settings</strong>) into a repo folder, and every format of a file under that folder &mdash; or a descendant folder &mdash; picks it up automatically, both in SSMS and from the CLI. It overrides just that one operation; your own Tools &gt; Options settings are never modified or persisted. If the file is missing or fails to parse, formatting silently falls back to your own settings rather than blocking.</p>
+<p>Turn this off with <strong>Use folder-level .sqlformatter.json</strong> under <strong>Tools &rarr; Options &rarr; General</strong> (category <strong>10. Shared config</strong>, on by default) if you don't want a folder's contents to ever affect formatting.</p>
+
+<!-- EXCEL EXPORT -->
+<h1 class="section-title" id="excel-export">12. Exporting results to Excel &amp; CSV</h1>
+<p>Click in the results grid, select cells (<span class="keycap">Ctrl+A</span> for all), press <span class="keycap">Ctrl+Shift+Alt+X</span>, then Ctrl+V in Excel &mdash; you get a real table with bold headers and, by default, every cell as Text so leading zeros and long IDs survive. <strong>Add Results as Sheet</strong> (<span class="keycap">Ctrl+Shift+Alt+A</span>) queues additional result sets into the same workbook before exporting.</p>
+<div class="note">SSMS's results grid builds its own private context menu, so right-clicking it won't show the extension's commands. Use the keyboard shortcut, the Tools menu, or add a toolbar button (<strong>Tools &rarr; Customize &rarr; Commands &rarr; Toolbar &rarr; Standard &rarr; Add Command &rarr; Tools &rarr; Copy Results as Excel Table</strong>) &mdash; a toolbar button is always visible and survives upgrades.</div>
+<h2>07. Export results to Excel</h2>
+<table>
+<tr><th>Option</th><th>What it does</th></tr>
+<tr><td>Export format</td><td>Xlsx (styled workbook) or Csv (styling options below don't apply to Csv).</td></tr>
+<tr><td>Output folder</td><td>Leave empty to use the Windows temp folder. Created if it doesn't exist; falls back to temp if it can't be used.</td></tr>
+<tr><td>Ask where to save</td><td>Shows a Save As dialog per export instead of writing straight to the output folder.</td></tr>
+<tr><td>Include query on a separate sheet</td><td>Adds a "Query" worksheet with the SQL that produced the data (Xlsx only).</td></tr>
+<tr><td>Try to copy the grid automatically</td><td>Sends the grid's Copy-with-Headers keystroke before converting &mdash; only works when the grid still has focus, i.e. via the Ctrl+Shift+Alt+X shortcut. A toolbar/menu click moves focus away, so whatever you copied yourself is converted instead.</td></tr>
+<tr><td>First row contains headers</td><td>Formats the first copied row as a bold header. Turn off if you copied without headers.</td></tr>
+<tr><td>Paste all cells as text</td><td>Keeps leading zeros and prevents long numbers turning into scientific notation or ID-like values into dates. Disable to let Excel auto-detect types.</td></tr>
+<tr><td>Paste NULL as empty cells</td><td>Converts the grid's literal "NULL" text into empty cells.</td></tr>
+</table>
+<h2>08. Excel appearance</h2>
+<table>
+<tr><th>Option</th><th>What it does</th></tr>
+<tr><td>Font name / size</td><td>Applied to the exported workbook.</td></tr>
+<tr><td>Bold header row</td><td>&nbsp;</td></tr>
+<tr><td>Header background / text colour</td><td>Colour picker via the dropdown.</td></tr>
+<tr><td>Show cell borders / Border colour</td><td>&nbsp;</td></tr>
+<tr><td>Freeze header row</td><td>Keeps headers visible while scrolling long result sets.</td></tr>
+<tr><td>Add AutoFilter to headers</td><td>Adds Excel filter dropdowns to the header row.</td></tr>
+<tr><td>Banded rows / Band colour</td><td>Shades every second data row for readability (off by default).</td></tr>
+</table>
+
+<!-- AI ENGINE -->
+<h1 class="section-title" id="ai-engine">13. AI Engine settings</h1>
+<p>Configured on the separate <strong>Tools &rarr; Options &rarr; AI Engine</strong> page.</p>
+<h2>1. Connection</h2>
+<table>
+<tr><th>Option</th><th>What it does</th></tr>
+<tr><td>Provider</td><td>Anthropic (Messages API) or Copilot (Copilot-style chat endpoint).</td></tr>
+<tr><td>API key / token</td><td>Your Anthropic API key or Copilot bearer token. Stored in Windows Credential Manager for the current user &mdash; never in plain text.</td></tr>
+<tr><td>Model</td><td>e.g. <code>claude-sonnet-4-5</code> (Anthropic) or a chat model your Copilot-compatible endpoint supports.</td></tr>
+<tr><td>API endpoint</td><td>Defaults to <code>https://api.anthropic.com/v1/messages</code>; point this at your Copilot-compatible chat completions endpoint (or any OpenAI-compatible endpoint returning a <code>choices[].message.content</code> shape) to switch providers.</td></tr>
+<tr><td>Max output tokens / Timeout</td><td>Raise both for very large scripts.</td></tr>
+</table>
+<h2>2. Behaviour</h2>
+<table>
+<tr><th>Option</th><th>What it does</th></tr>
+<tr><td>Custom style instructions</td><td>Free-form text appended to the prompt, e.g. "leading commas", "align equals signs in SET clauses", "keep short CASE expressions on one line".</td></tr>
+<tr><td>Send General options as style guide</td><td>Translates your rule-based settings (casing, indent, line breaks) into the AI prompt so both engines produce a consistent style.</td></tr>
+<tr><td>Fall back to rule-based on error</td><td>If the AI call fails (no network, bad key, timeout), silently formats with the rule-based engine instead.</td></tr>
+</table>
+<h2>3. Privacy</h2>
+<p><strong>Confirm before sending script</strong> (on by default) asks for confirmation before sending SQL to the provider &mdash; your script text, including any embedded literals or data, leaves the machine when using the AI engine. Get an Anthropic key at <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a> (billed separately from any Claude.ai subscription).</p>
+
+<!-- IMPORT/EXPORT SETTINGS -->
+<h1 class="section-title" id="import-export-settings">14. Export / Import Formatter Settings</h1>
+<p><strong>Export Formatter Settings</strong> (Tools menu) saves your current configuration to a JSON file &mdash; the same format read by <strong>Import Formatter Settings</strong> and by <code>.sqlformatter.json</code> / the CLI's <code>--config</code>. Use it to share one style across a team, or to keep a personal backup before experimenting with settings.</p>
+
+<!-- TIPS -->
+<h1 class="section-title" id="tips-troubleshooting">15. Tips &amp; troubleshooting</h1>
+<table>
+<tr><th>Question</th><th>Answer</th></tr>
+<tr><td>Format T-SQL Script doesn't appear when I right-click</td><td>Some SSMS builds don't add it to the query editor's private context menu automatically. The keyboard shortcut and Tools menu always work; to add the context-menu entry yourself (one-time, survives upgrades): <strong>Tools &rarr; Customize &rarr; Commands tab &rarr; Context menu &rarr; "Editor Context Menus | Code Window" &rarr; Add Command &rarr; category Tools &rarr; Format T-SQL Script &rarr; OK &rarr; Close.</strong></td></tr>
+<tr><td>Right-clicking the results grid shows no export option</td><td>The grid builds its own private context menu. Use <span class="keycap">Ctrl+Shift+Alt+X</span>, the Tools menu, or add a toolbar button &mdash; see Exporting results to Excel &amp; CSV, above.</td></tr>
+<tr><td>My comments moved or disappeared</td><td>Check <strong>Comment handling</strong> under Tools &gt; Options &gt; General &mdash; Discard mode drops them (with a warning first). Inline or MoveToEnd never drop a comment; switch to the AI engine if you need them to stay in their exact original spot.</td></tr>
+<tr><td>Expand SELECT * isn't finding my table</td><td>It only resolves plain base tables/views reachable through the active connection &mdash; not CTEs, derived tables, table-valued functions, temp tables, or synonyms. Confirm the query window shows a live connection, and that the table name/schema is spelled correctly.</td></tr>
+<tr><td>A script wasn't touched at all</td><td>By design &mdash; a script that fails to parse is always left completely untouched. You'll see the parse error with line/column instead.</td></tr>
+<tr><td>How do I uninstall?</td><td><code>VSIXInstaller.exe /uninstall:SsmsSqlFormatter.7f3d2a1e-5b8c-4e9f-a6d0-1c4b7e2f9a35</code></td></tr>
+</table>
+
+<footer class="pagefoot">SSMS SQL Formatter User Guide &mdash; generated for version <span class="ssf-version">2.8.1</span>. This document is updated alongside new features; if something you see in the extension isn't covered here, check <strong>Tools &rarr; Format T-SQL Script Help</strong> or the <a href="https://github.com/ClaneSharke/SSMSSQLFormatter" target="_blank" rel="noopener">README on GitHub</a> for the most current details. Free and open source under the <a href="https://github.com/ClaneSharke/SSMSSQLFormatter/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>.</footer>
+
+<script>
+  // Single source of truth for the version/date shown on the cover and in the footer.
+  // Update this whenever tools/update-version.ps1 bumps the extension's version.
+  var SSF_GUIDE_VERSION = { version: '2.8.1', updated: '2026-08-20' };
+  document.querySelectorAll('.ssf-version').forEach(function (el) { el.textContent = SSF_GUIDE_VERSION.version; });
+  document.querySelectorAll('.ssf-updated').forEach(function (el) { el.textContent = SSF_GUIDE_VERSION.updated; });
+</script>
+</body>
+</html>

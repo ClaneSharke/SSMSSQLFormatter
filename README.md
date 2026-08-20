@@ -1,6 +1,7 @@
 # SSMS SQL Formatter (Rules + AI)
 
 **[⬇ Download the latest release](https://github.com/ClaneSharke/SSMSSQLFormatter/releases/latest)** — free, MIT-licensed.
+See the [product page](docs/SSMSSQLFormatter-Product-Page.html) or the full [User Guide](docs/SSMSSQLFormatter-User-Guide.html) for a complete walkthrough of every feature and option.
 
 ## Quick help
 

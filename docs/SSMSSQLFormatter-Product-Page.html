@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SSMS SQL Formatter</title>
+<meta name="description" content="SSMS SQL Formatter is a free, open-source VSIX extension for SQL Server Management Studio 21/22: rule-based or AI-assisted T-SQL formatting, comment-safe reformatting, SELECT * expansion, and one-click export of query results to styled Excel or CSV.">
+<style>
+  :root {
+    --black: #070b14;
+    --ink: #0b1220;
+    --charcoal: #111c2e;
+    --accent: #2f6fed;
+    --accent-soft: #8fb4ff;
+    --paper: #f6f8fc;
+    --stone: #dde3ee;
+    --muted: #57607a;
+    --text: #1b2333;
+    --heading: #0f172a;
+    --card-bg: #ffffff;
+    --hero-muted: #c4d2f2;
+    --code-bg: #0e1626;
+    --code-text: #d7e0f5;
+    --code-accent: #8fb4ff;
+  }
+  /* Same tokens/mechanism as docs/SSMSSQLFormatter-User-Guide.html: only "paper page" tokens
+     get a dark counterpart, since the hero/buttons/badge are already light-on-dark and read
+     fine unchanged. --hero-muted is deliberately excluded from the dark override below - the
+     hero's own background never switches with the theme toggle, so its text tokens must not
+     either, or they go dark-on-dark and disappear. */
+  :root[data-theme="dark"] {
+    --paper: #0a0f1a;
+    --text: #dbe2f0;
+    --heading: #f1f5fb;
+    --muted: #98a3bf;
+    --stone: #23304a;
+    --card-bg: #111a2c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: Arial, Helvetica, "Segoe UI", sans-serif;
+    color: var(--text);
+    background: var(--paper);
+    margin: 0;
+    line-height: 1.5;
+  }
+  a { color: var(--accent); }
+  .theme-toggle {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 50;
+    padding: 8px 14px;
+    color: var(--heading);
+    background: var(--paper);
+    border: 1px solid var(--accent);
+    border-radius: 20px;
+    font-family: inherit;
+    font-size: 9pt;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  }
+  .theme-toggle:hover { border-color: var(--accent-soft); }
+
+  .hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 72px 24px 64px;
+    color: #ffffff;
+    background:
+      radial-gradient(circle at 78% 18%, rgba(143, 180, 255, 0.16), transparent 30%),
+      radial-gradient(circle at 14% 84%, rgba(47, 111, 237, 0.18), transparent 34%),
+      linear-gradient(135deg, var(--black) 0%, var(--charcoal) 50%, var(--black) 100%);
+  }
+  .hero .eyebrow {
+    margin: 0 0 16px;
+    color: var(--accent-soft);
+    font-size: 9pt;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .hero .badge {
+    width: 84px;
+    height: 84px;
+    margin-bottom: 22px;
+    filter: drop-shadow(0 12px 34px rgba(0, 0, 0, 0.45));
+  }
+  .hero h1 { font-size: 34pt; margin: 0 0 10px; color: #ffffff; font-weight: 900; }
+  .hero .tagline { font-size: 13pt; color: var(--hero-muted); margin: 0 0 30px; max-width: 600px; }
+  .hero-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+  .store-button, .secondary-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 24px;
+    border-radius: 6px;
+    font-size: 10.5pt;
+    font-weight: 900;
+    text-decoration: none;
+  }
+  .store-button { color: var(--black); background: linear-gradient(135deg, var(--accent-soft), var(--accent)); }
+  .secondary-button { color: var(--accent-soft); background: transparent; border: 1px solid rgba(143, 180, 255, 0.5); }
+  .secondary-button:hover { border-color: var(--accent-soft); }
+  .secondary-button.on-paper { color: var(--accent); border-color: var(--accent); }
+  .hero .price { margin-top: 18px; font-size: 9.5pt; color: var(--hero-muted); }
+
+  .demo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+    margin-top: 28px;
+    text-align: left;
+  }
+  .demo-card {
+    background: var(--code-bg);
+    border: 1px solid var(--stone);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .demo-card .demo-label {
+    margin: 0;
+    padding: 10px 16px;
+    font-size: 9pt;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--code-accent);
+    background: rgba(143, 180, 255, 0.08);
+    border-bottom: 1px solid rgba(143, 180, 255, 0.18);
+  }
+  .demo-card pre {
+    margin: 0;
+    padding: 16px;
+    overflow-x: auto;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 9.5pt;
+    line-height: 1.6;
+    color: var(--code-text);
+  }
+  .demo-card .kw { color: #8fb4ff; font-weight: 700; }
+  .demo-card .lit { color: #a8e0a0; }
+
+  .guide-band {
+    margin-top: 56px;
+    padding: 32px 40px;
+    border-radius: 12px;
+    background: var(--card-bg);
+    border: 1px solid var(--stone);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+  .guide-band h2 { margin: 0 0 6px; font-size: 14pt; color: var(--heading); }
+  .guide-band p { margin: 0; color: var(--muted); font-size: 10pt; }
+
+  main { max-width: 1040px; margin: 0 auto; padding: 56px 24px; }
+  .section-title {
+    font-size: 20pt;
+    color: var(--heading);
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 6px;
+    margin: 0 0 28px;
+  }
+  .lede { font-size: 11.5pt; color: var(--muted); max-width: 760px; }
+
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 20px;
+    margin-top: 28px;
+  }
+  .feature-card {
+    background: var(--card-bg);
+    border: 1px solid var(--stone);
+    border-radius: 10px;
+    padding: 20px 22px;
+  }
+  .feature-card h3 {
+    margin: 0 0 10px;
+    font-size: 12.5pt;
+    color: var(--heading);
+    border-left: 4px solid var(--accent);
+    padding-left: 8px;
+  }
+  .feature-card p { margin: 0; font-size: 10pt; color: var(--muted); }
+
+  .cta-band {
+    margin-top: 56px;
+    padding: 40px;
+    border-radius: 12px;
+    text-align: center;
+    color: #ffffff;
+    background: linear-gradient(135deg, var(--black) 0%, var(--charcoal) 100%);
+  }
+  .cta-band h2 { margin: 0 0 10px; font-size: 16pt; }
+  .cta-band p { margin: 0 0 22px; color: var(--hero-muted); }
+
+  footer.pagefoot {
+    text-align: center;
+    padding: 24px;
+    font-size: 9pt;
+    color: var(--muted);
+  }
+  footer.pagefoot a { color: var(--accent); font-weight: 700; text-decoration: none; }
+</style>
+<script>
+  (function () {
+    var stored = localStorage.getItem('ssmssqlfmt-landing-theme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (stored === 'dark' || (!stored && prefersDark)) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  })();
+</script>
+</head>
+<body>
+<button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle dark mode">Dark mode</button>
+<script>
+  (function () {
+    var btn = document.getElementById('themeToggle');
+    function isDark() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
+    function updateLabel() { btn.textContent = isDark() ? 'Light mode' : 'Dark mode'; }
+    updateLabel();
+    btn.addEventListener('click', function () {
+      if (isDark()) {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem('ssmssqlfmt-landing-theme', 'light');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        localStorage.setItem('ssmssqlfmt-landing-theme', 'dark');
+      }
+      updateLabel();
+    });
+  })();
+</script>
+
+<div class="hero">
+  <p class="eyebrow">For SQL Server Management Studio 21 / 22</p>
+  <svg class="badge" viewBox="0 0 84 84" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SSMS SQL Formatter">
+    <defs>
+      <linearGradient id="badgeGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#8fb4ff"/>
+        <stop offset="1" stop-color="#2f6fed"/>
+      </linearGradient>
+    </defs>
+    <rect width="84" height="84" rx="18" fill="url(#badgeGrad)"/>
+    <rect x="18" y="24" width="26" height="6" rx="3" fill="#0b1220"/>
+    <rect x="26" y="39" width="40" height="6" rx="3" fill="#0b1220"/>
+    <rect x="18" y="54" width="34" height="6" rx="3" fill="#0b1220"/>
+  </svg>
+  <h1>SSMS SQL Formatter</h1>
+  <p class="tagline">Format T-SQL directly inside SSMS &mdash; rule-based or AI-assisted, with comment-safe reformatting, SELECT&nbsp;* expansion, and one-click export of query results to styled Excel or CSV.</p>
+  <div class="hero-actions">
+    <a class="store-button" href="https://github.com/ClaneSharke/SSMSSQLFormatter/releases/latest">Download the latest release</a>
+    <a class="secondary-button" href="SSMSSQLFormatter-User-Guide.html">Read the User Guide</a>
+    <a class="secondary-button" href="https://github.com/ClaneSharke/SSMSSQLFormatter">View on GitHub</a>
+  </div>
+  <div class="demo-grid">
+    <div class="demo-card">
+      <p class="demo-label">Before</p>
+      <pre>select * from dbo.Orders o
+join dbo.Customers c on c.CustomerId = o.CustomerId
+where o.OrderDate &gt;= '2026-01-01' and o.Status = 'Open'
+order by o.OrderDate</pre>
+    </div>
+    <div class="demo-card">
+      <p class="demo-label">After &mdash; formatted, SELECT * expanded</p>
+      <pre><span class="kw">SELECT</span>   o.OrderId,
+         o.CustomerId,
+         o.OrderDate,
+         o.Status,
+         c.CustomerId,
+         c.CustomerName,
+         c.Email
+<span class="kw">FROM</span>     dbo.Orders <span class="kw">AS</span> o
+         <span class="kw">INNER JOIN</span>
+         dbo.Customers <span class="kw">AS</span> c
+         <span class="kw">ON</span> c.CustomerId = o.CustomerId
+<span class="kw">WHERE</span>    o.OrderDate &gt;= <span class="lit">'2026-01-01'</span>
+         <span class="kw">AND</span> o.Status = <span class="lit">'Open'</span>
+<span class="kw">ORDER BY</span> o.OrderDate;</pre>
+    </div>
+  </div>
+  <p class="price">Free &amp; open source (MIT) &nbsp;&bull;&nbsp; No account, cloud sync, or internet connection required</p>
+</div>
+
+<main>
+  <section id="features">
+    <h2 class="section-title">What it does</h2>
+    <p class="lede">A VSIX extension for SQL Server Management Studio 21/22 that formats the query window in place, with a standalone CLI for CI. Nothing you didn't ask for ever leaves your machine.</p>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <h3>Two formatting engines</h3>
+        <p><strong>Rule-based</strong> (Microsoft ScriptDom) is fully offline and instant &mdash; used for save/paste/batch/CI. <strong>AI</strong> (your own Anthropic or Copilot key) preserves comments exactly and follows free-form style instructions.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Comments are never silently dropped</h3>
+        <p>Choose <strong>Inline</strong> (reattached to the code they were next to), <strong>MoveToEnd</strong> (collected at the bottom), or <strong>Discard</strong> &mdash; with a warning before anything is dropped.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Expand SELECT *</h3>
+        <p>Replaces <code>SELECT *</code> (and <code>alias.*</code>) with an explicit column list resolved from the real table/view structure via your active connection. Leaves it untouched wherever it can't confidently resolve the source.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Style, your way</h3>
+        <p>Classic or Modern presets, or a fully Custom mix of keyword casing, indentation, comma placement, per-clause line breaks, and alignment for JOINs, CASE, and assignments.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Export results to Excel or CSV</h3>
+        <p>One shortcut turns the results grid into a styled workbook &mdash; bold headers, frozen header row, AutoFilter, banded rows, and text-safe cells so IDs and leading zeros survive.</p>
+      </div>
+      <div class="feature-card">
+        <h3>CI-friendly by design</h3>
+        <p>A standalone <code>ssmssqlfmt</code> CLI (no SSMS or AI required) gates a PR on "SQL is formatted," and a shared <code>.sqlformatter.json</code> keeps the IDE and CI using the exact same style.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="guide-band">
+    <div>
+      <h2>Want the full reference first?</h2>
+      <p>Every option, shortcut, and setting is covered in the User Guide.</p>
+    </div>
+    <div class="hero-actions">
+      <a class="secondary-button on-paper" href="SSMSSQLFormatter-User-Guide.html">Read the User Guide</a>
+    </div>
+  </div>
+
+  <section class="cta-band">
+    <h2>Ready to try it?</h2>
+    <p>Download the VSIX from GitHub Releases, or read the full user guide first.</p>
+    <div class="hero-actions">
+      <a class="store-button" href="https://github.com/ClaneSharke/SSMSSQLFormatter/releases/latest">Download the latest release</a>
+      <a class="secondary-button" href="SSMSSQLFormatter-User-Guide.html">Read the User Guide</a>
+    </div>
+  </section>
+</main>
+
+<footer class="pagefoot">Free and open source under the <a href="https://github.com/ClaneSharke/SSMSSQLFormatter/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>. See the <a href="SSMSSQLFormatter-User-Guide.html">User Guide</a> or the <a href="https://github.com/ClaneSharke/SSMSSQLFormatter" target="_blank" rel="noopener">source on GitHub</a>.</footer>
+</body>
+</html>
