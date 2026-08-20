@@ -55,14 +55,15 @@ namespace SsmsSqlFormatter.Formatting
         /// <summary>
         /// Formats a script that contains SQLCMD-mode directives. ScriptDom cannot parse
         /// those lines at all, so they are replaced with marker comments before parsing
-        /// and spliced back in verbatim afterwards. Comment preservation is forced on for
-        /// this call regardless of the "Preserve comments" setting, because the markers
-        /// travel through formatting as comments - unlike a decorative comment, losing one
-        /// would silently corrupt the script (it would no longer run under sqlcmd/SSMS).
+        /// and spliced back in verbatim afterwards. Comment handling is forced to Inline
+        /// for this call regardless of the "Comment handling" setting, because the markers
+        /// travel through formatting as comments and must land back at their original
+        /// position - Discard would corrupt the script (it would no longer run under
+        /// sqlcmd/SSMS), and MoveToEnd would run the directive too late to have effect.
         /// </summary>
         private static FormatResult FormatWithSqlCmdLines(string prepared, List<string> sqlCmdLines, IFormatterOptions options)
         {
-            var innerOptions = CloneWithPreserveComments(options, true);
+            var innerOptions = CloneWithCommentHandling(options, CommentHandling.Inline);
             var result = FormatCore(prepared, innerOptions);
             if (!result.Success) return result;
 
@@ -124,10 +125,10 @@ namespace SsmsSqlFormatter.Formatting
         /// <summary>
         /// Shallow copy of an options instance - same concrete type as the source,
         /// whether that's <see cref="Options.GeneralOptions"/> (VSIX) or
-        /// <see cref="Options.FormatterSettings"/> (CLI) - with PreserveComments
+        /// <see cref="Options.FormatterSettings"/> (CLI) - with CommentHandling
         /// overridden. Never mutates the source.
         /// </summary>
-        private static IFormatterOptions CloneWithPreserveComments(IFormatterOptions source, bool preserveComments)
+        private static IFormatterOptions CloneWithCommentHandling(IFormatterOptions source, CommentHandling commentHandling)
         {
             var type = source.GetType();
             var clone = Activator.CreateInstance(type);
@@ -136,7 +137,7 @@ namespace SsmsSqlFormatter.Formatting
                 if (!prop.CanRead || !prop.CanWrite) continue;
                 try { prop.SetValue(clone, prop.GetValue(source)); } catch { /* skip */ }
             }
-            type.GetProperty(nameof(IFormatterOptions.PreserveComments))?.SetValue(clone, preserveComments);
+            type.GetProperty(nameof(IFormatterOptions.CommentHandling))?.SetValue(clone, commentHandling);
             return (IFormatterOptions)clone;
         }
 
@@ -197,8 +198,13 @@ namespace SsmsSqlFormatter.Formatting
                 var generator = new Sql160ScriptGenerator(BuildOptions(options));
                 generator.GenerateScript(fragment, out string formatted);
 
-                if (options.PreserveComments && result.CommentCount > 0)
-                    formatted = ReinjectComments(sql, formatted);
+                if (result.CommentCount > 0)
+                {
+                    if (options.CommentHandling == CommentHandling.Inline)
+                        formatted = ReinjectComments(sql, formatted);
+                    else if (options.CommentHandling == CommentHandling.MoveToEnd)
+                        formatted = AppendCommentsAtEnd(sql, formatted);
+                }
 
                 formatted = PostProcess(formatted, options);
 
@@ -518,6 +524,33 @@ namespace SsmsSqlFormatter.Formatting
             for (; oi < items.Count; oi++)
                 if (items[oi].IsComment) sb.Append('\n').Append(items[oi].Text);
             foreach (var lc in lost) sb.Append('\n').Append(lc);
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Strips every comment out of its original position and collects them all at the
+        /// end of the formatted script instead, in their original order. The generator's
+        /// output never contains comments to begin with (they're not part of the parse
+        /// tree it regenerates from), so this only needs to harvest them from the original.
+        /// </summary>
+        private static string AppendCommentsAtEnd(string originalSql, string formattedSql)
+        {
+            var parser = new TSql160Parser(initialQuotedIdentifiers: true);
+            TSqlFragment origFrag;
+            IList<ParseError> err;
+            using (var r = new StringReader(originalSql)) origFrag = parser.Parse(r, out err);
+            if (origFrag?.ScriptTokenStream == null) return formattedSql;
+
+            var comments = origFrag.ScriptTokenStream
+                .Where(t => t.TokenType == TSqlTokenType.SingleLineComment ||
+                            t.TokenType == TSqlTokenType.MultilineComment)
+                .Select(t => t.Text)
+                .ToList();
+            if (comments.Count == 0) return formattedSql;
+
+            var sb = new StringBuilder(formattedSql);
+            sb.Append("\r\n\r\n-- [SQL Formatter] comments from the original script:");
+            foreach (var c in comments) sb.Append("\r\n").Append(c);
             return sb.ToString();
         }
 

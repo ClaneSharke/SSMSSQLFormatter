@@ -49,7 +49,7 @@ namespace SsmsSqlFormatter.Options
         public int MaxConsecutiveBlankLines { get; set; } = 1;
         public bool TrimTrailingWhitespace { get; set; } = true;
 
-        public bool PreserveComments { get; set; } = true;
+        public CommentHandling CommentHandling { get; set; } = CommentHandling.Inline;
         public bool EnableFormattingCache { get; set; } = false;
     }
 }

@@ -51,6 +51,16 @@ namespace SsmsSqlFormatter.Options
         Leading
     }
 
+    public enum CommentHandling
+    {
+        /// <summary>Comments are dropped from the output entirely.</summary>
+        Discard,
+        /// <summary>Comments are re-inserted attached to the same code they were next to originally (trailing comments stay at line ends, standalone comments keep their own line).</summary>
+        Inline,
+        /// <summary>Comments are stripped from their original position and collected at the end of the script instead, in their original order.</summary>
+        MoveToEnd
+    }
+
     public class GeneralOptions : DialogPage, IFormatterOptions
     {
         // ---------- Engine ----------
@@ -352,9 +362,9 @@ namespace SsmsSqlFormatter.Options
 
         // ---------- Safety ----------
         [Category("06. Safety")]
-        [DisplayName("Preserve comments")]
-        [Description("Re-insert the original script's comments into the formatted output, keeping them attached to the same code (trailing comments stay at line ends, standalone comments keep their own line). If a comment can't be confidently repositioned it is appended at the end under a banner - never silently deleted.")]
-        public bool PreserveComments { get; set; } = true;
+        [DisplayName("Comment handling")]
+        [Description("How comments are handled when reformatting (the rule-based engine regenerates the script from its parse tree, which does not retain comments on its own). Inline = keep each comment attached to the same code it was next to (trailing comments stay at line ends, standalone comments keep their own line); if a comment can't be confidently repositioned it is appended at the end under a banner instead of being dropped. MoveToEnd = strip every comment from its original position and collect them all at the end of the script, in their original order. Discard = drop comments entirely.")]
+        public CommentHandling CommentHandling { get; set; } = CommentHandling.Inline;
 
         [Category("06. Safety")]
         [DisplayName("Enable formatting cache")]
@@ -363,7 +373,7 @@ namespace SsmsSqlFormatter.Options
 
         [Category("06. Safety")]
         [DisplayName("Warn when script contains comments")]
-        [Description("Only applies when 'Preserve comments' is OFF: warns that reformatting may drop or move comments and offers the chance to cancel.")]
+        [Description("Only applies when 'Comment handling' is set to Discard: warns that reformatting will drop comments and offers the chance to cancel.")]
         public bool WarnOnComments { get; set; } = true;
     }
 }

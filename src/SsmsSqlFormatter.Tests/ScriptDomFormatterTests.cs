@@ -1,3 +1,4 @@
+using System;
 using NUnit.Framework;
 using SsmsSqlFormatter.Formatting;
 using SsmsSqlFormatter.Options;
@@ -27,14 +28,40 @@ namespace SsmsSqlFormatter.Tests
         }
 
         [Test]
-        public void PreserveComments_ReinjectsComments()
+        public void CommentHandlingInline_ReinjectsComments()
         {
             var sql = "-- top comment\r\nSELECT 1 -- trailing\r\n";
-            var opts = new FormatterSettings { PreserveComments = true };
+            var opts = new FormatterSettings { CommentHandling = CommentHandling.Inline };
             var res = ScriptDomFormatter.Format(sql, opts);
             Assert.IsTrue(res.Success, res.ErrorMessage);
             Assert.IsTrue(res.FormattedSql.Contains("-- top comment"));
             Assert.IsTrue(res.FormattedSql.Contains("-- trailing"));
+        }
+
+        [Test]
+        public void CommentHandlingMoveToEnd_CollectsCommentsAtEnd()
+        {
+            var sql = "-- top comment\r\nSELECT 1 -- trailing\r\n";
+            var opts = new FormatterSettings { CommentHandling = CommentHandling.MoveToEnd };
+            var res = ScriptDomFormatter.Format(sql, opts);
+            Assert.IsTrue(res.Success, res.ErrorMessage);
+            int selectIdx = res.FormattedSql.IndexOf("SELECT", StringComparison.OrdinalIgnoreCase);
+            int topIdx = res.FormattedSql.IndexOf("-- top comment", StringComparison.Ordinal);
+            int trailingIdx = res.FormattedSql.IndexOf("-- trailing", StringComparison.Ordinal);
+            Assert.IsTrue(topIdx > selectIdx, "Expected '-- top comment' to be moved after the SELECT statement.");
+            Assert.IsTrue(trailingIdx > selectIdx, "Expected '-- trailing' to be moved after the SELECT statement.");
+        }
+
+        [Test]
+        public void CommentHandlingDiscard_DropsComments()
+        {
+            var sql = "-- top comment\r\nSELECT 1 -- trailing\r\n";
+            var opts = new FormatterSettings { CommentHandling = CommentHandling.Discard };
+            var res = ScriptDomFormatter.Format(sql, opts);
+            Assert.IsTrue(res.Success, res.ErrorMessage);
+            Assert.IsFalse(res.FormattedSql.Contains("-- top comment"));
+            Assert.IsFalse(res.FormattedSql.Contains("-- trailing"));
+            Assert.AreEqual(2, res.CommentCount);
         }
 
         [Test]

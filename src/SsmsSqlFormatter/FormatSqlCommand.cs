@@ -830,13 +830,13 @@ namespace SsmsSqlFormatter
             {
                 result = ScriptDomFormatter.Format(original, general);
 
-                if (result.Success && result.CommentCount > 0 && general.WarnOnComments && !general.PreserveComments)
+                if (result.Success && result.CommentCount > 0 && general.WarnOnComments && general.CommentHandling == CommentHandling.Discard)
                 {
                     var proceed = MessageBox.Show(
-                        $"This script contains {result.CommentCount} comment(s). The rule-based engine may drop " +
-                        "or move comments when reformatting.\r\n\r\n" +
-                        "Continue anyway? (Tip: the AI engine preserves comments — switch under " +
-                        "Tools > Options > Format T-SQL Script.)",
+                        $"This script contains {result.CommentCount} comment(s). Comment handling is set to " +
+                        "Discard, so they will be dropped when reformatting.\r\n\r\n" +
+                        "Continue anyway? (Tip: set 'Comment handling' to Inline or MoveToEnd under " +
+                        "Tools > Options > Format T-SQL Script to keep them.)",
                         "SQL Formatter",
                         MessageBoxButton.YesNo, MessageBoxImage.Warning);
                     if (proceed != MessageBoxResult.Yes) return;
@@ -949,13 +949,13 @@ namespace SsmsSqlFormatter
             {
                 result = ScriptDomFormatter.Format(original, general);
 
-                if (result.Success && result.CommentCount > 0 && general.WarnOnComments && !general.PreserveComments)
+                if (result.Success && result.CommentCount > 0 && general.WarnOnComments && general.CommentHandling == CommentHandling.Discard)
                 {
                     var proceed = MessageBox.Show(
-                        $"This script contains {result.CommentCount} comment(s). The rule-based engine may drop " +
-                        "or move comments when reformatting.\r\n\r\n" +
-                        "Continue anyway? (Tip: the AI engine preserves comments — switch under " +
-                        "Tools > Options > Format T-SQL Script.)",
+                        $"This script contains {result.CommentCount} comment(s). Comment handling is set to " +
+                        "Discard, so they will be dropped when reformatting.\r\n\r\n" +
+                        "Continue anyway? (Tip: set 'Comment handling' to Inline or MoveToEnd under " +
+                        "Tools > Options > Format T-SQL Script to keep them.)",
                         "SQL Formatter",
                         MessageBoxButton.YesNo, MessageBoxImage.Warning);
                     if (proceed != MessageBoxResult.Yes) return;
