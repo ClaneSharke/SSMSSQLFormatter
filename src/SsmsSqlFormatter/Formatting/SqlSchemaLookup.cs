@@ -33,11 +33,21 @@ namespace SsmsSqlFormatter.Formatting
                 {
                     await connection.OpenAsync().ConfigureAwait(false);
 
+                    // sys.columns/sys.objects rather than INFORMATION_SCHEMA.COLUMNS: the
+                    // latter deliberately excludes anything in the "sys" schema, which means
+                    // it can't see the old-style system compatibility views (sysobjects,
+                    // syscolumns, sysindexes, ...) even though they're perfectly queryable.
+                    // The catalog views see everything - user tables/views ('U'/'V') and
+                    // system objects alike - with the same metadata-visibility permission
+                    // model as INFORMATION_SCHEMA.
                     string catalogPrefix = string.IsNullOrEmpty(database) ? "" : "[" + database.Replace("]", "]]") + "].";
                     string sql =
-                        $"SELECT TABLE_SCHEMA, COLUMN_NAME FROM {catalogPrefix}INFORMATION_SCHEMA.COLUMNS " +
-                        "WHERE TABLE_NAME = @table AND (@schema IS NULL OR TABLE_SCHEMA = @schema) " +
-                        "ORDER BY TABLE_SCHEMA, ORDINAL_POSITION";
+                        $"SELECT s.name AS TableSchema, c.name AS ColumnName " +
+                        $"FROM {catalogPrefix}sys.columns c " +
+                        $"JOIN {catalogPrefix}sys.objects o ON o.object_id = c.object_id " +
+                        $"JOIN {catalogPrefix}sys.schemas s ON s.schema_id = o.schema_id " +
+                        "WHERE o.name = @table AND o.type IN ('U', 'V') AND (@schema IS NULL OR s.name = @schema) " +
+                        "ORDER BY s.name, c.column_id";
 
                     using (var command = new SqlCommand(sql, connection) { CommandTimeout = CommandTimeoutSeconds })
                     {
