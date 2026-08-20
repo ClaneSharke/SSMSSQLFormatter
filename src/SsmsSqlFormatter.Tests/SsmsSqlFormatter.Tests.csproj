@@ -40,6 +40,7 @@
     <Compile Include="SqlSyntaxHighlighterTests.cs" />
     <Compile Include="AlignJoinAndCaseTests.cs" />
     <Compile Include="FormatOnPasteListenerTests.cs" />
+    <Compile Include="SelectStarExpanderTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="NUnit" Version="3.13.3" />

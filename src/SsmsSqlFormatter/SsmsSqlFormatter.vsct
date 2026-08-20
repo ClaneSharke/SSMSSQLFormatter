@@ -111,6 +111,14 @@
           <ToolTipText>Format every currently-open .sql document in place (rule-based engine) - a normal editor edit per window, undoable with Ctrl+Z</ToolTipText>
         </Strings>
       </Button>
+      <Button guid="guidSsmsSqlFormatterCmdSet" id="cmdidExpandSelectStar" priority="0x0125" type="Button">
+        <Parent guid="guidSsmsSqlFormatterCmdSet" id="ToolsMenuGroup" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Expand SELECT *</ButtonText>
+          <ToolTipText>Replace SELECT * (and alias.*) with explicit column lists resolved from the active connection's table/view structure, where possible</ToolTipText>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
@@ -139,6 +147,7 @@
       <IDSymbol name="cmdidPreviewFormat" value="0x0109" />
       <IDSymbol name="cmdidBatchFormat" value="0x010A" />
       <IDSymbol name="cmdidFormatAllOpen" value="0x010B" />
+      <IDSymbol name="cmdidExpandSelectStar" value="0x010C" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>

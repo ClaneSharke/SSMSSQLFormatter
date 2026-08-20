@@ -75,7 +75,10 @@ Two implementations:
 
 When changing a formatting option, it almost always needs a matching property added to **both**
 `IFormatterOptions` and `FormatterSettings` (and usually `GeneralOptions` + its serializer round
-trip), or the CLI/tests and the VSIX UI will drift apart.
+trip), or the CLI/tests and the VSIX UI will drift apart. The one deliberate exception is
+`GeneralOptions.ExpandSelectStar` (see "Expand SELECT *" below) — it's VSIX-only and never reaches
+`ScriptDomFormatter.Format`, so putting it on the shared interface would incorrectly imply the CLI
+could honor it.
 
 ### Shared team config: `.sqlformatter.json`
 
@@ -103,6 +106,31 @@ discovery path, which is how "one style file shared between IDE and CI" works.
   CLI's `check`/`format` commands.
 - `tools/SsmsSqlFormatter.Cli/Program.cs` — `ssmssqlfmt check|format <paths> [--config x.json]`;
   `check` exits 1 if anything would change or fails to parse (build/PR gate).
+
+### Expand SELECT *
+
+Resolves `SELECT *` (and `alias.*`) into explicit, ordered column lists using real table/view
+structure — reachable via the `ExpandSelectStar` option (folds into the main Format command) or
+the standalone "Expand SELECT *" Tools menu command. VSIX-only; never touched by format-on-save,
+format-on-paste, batch formatting, or the CLI, because it needs a live database connection.
+
+- `Formatting/SelectStarExpander.cs` — the testable core. `RewriteGivenSchema` is a pure,
+  synchronous AST walk (given an `ISchemaCatalog`) that splices plain replacement text directly
+  into the *original* source at each `SelectStarExpression`'s own `StartOffset`/`FragmentLength` —
+  deliberately **not** regenerated through `Sql160ScriptGenerator`, which would drop comments
+  before `ScriptDomFormatter`'s own comment handling ever saw them (same reason
+  `ReinjectComments` exists). Anything it can't confidently resolve (CTE, derived table, unknown
+  table, ambiguous schema) is left as `SELECT *`, independently per occurrence. `ExpandAsync` is
+  the thin async wrapper that resolves real columns via a lookup delegate.
+- `Options/SsmsConnectionDiscovery.cs` — reads the active query window's connection via pure
+  reflection into `Microsoft.SqlServer.Management.UI.VSIntegration.ServiceCache` (an assembly
+  that ships only inside an SSMS install, never as a NuGet package — referencing it at compile
+  time would break CI, which builds without SSMS present). Every step is defensive; any failure
+  returns null, which callers already treat as "expansion unavailable." This is the one part of
+  the whole feature that can't be exercised by CI or an automated agent — only by running inside
+  real SSMS with a live connection.
+- `Formatting/SqlSchemaLookup.cs` — the only piece that actually queries a database
+  (`INFORMATION_SCHEMA.COLUMNS`), given a plain ADO.NET connection string.
 
 ### Package load
 

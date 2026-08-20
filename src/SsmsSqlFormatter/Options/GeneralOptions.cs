@@ -375,5 +375,11 @@ namespace SsmsSqlFormatter.Options
         [DisplayName("Warn when script contains comments")]
         [Description("Only applies when 'Comment handling' is set to Discard: warns that reformatting will drop comments and offers the chance to cancel.")]
         public bool WarnOnComments { get; set; } = true;
+
+        // ---------- SELECT * expansion ----------
+        [Category("11. SELECT * expansion")]
+        [DisplayName("Expand SELECT * when formatting")]
+        [Description("When enabled, 'Format T-SQL Script' also expands SELECT * (and alias.*) into explicit column lists, resolved from the active query window's connection. Only applied where the referenced table/view's columns can be confidently determined; left as SELECT * otherwise (unresolved table, join to a CTE/derived table, no active connection, etc.). Requires a live database connection, so this is never used by format-on-save, format-on-paste, batch formatting, or the CLI - interactive only. The standalone 'Expand SELECT *' Tools menu command always attempts expansion regardless of this setting.")]
+        public bool ExpandSelectStar { get; set; } = false;
     }
 }

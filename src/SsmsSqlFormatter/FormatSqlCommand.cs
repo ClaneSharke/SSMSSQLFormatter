@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.Design;
+using System.Threading;
 using System.Windows;
 using EnvDTE;
 using EnvDTE80;
@@ -29,6 +31,7 @@ namespace SsmsSqlFormatter
         public const int PreviewFormatCommandId = 0x0109;
         public const int BatchFormatCommandId = 0x010A;
         public const int FormatAllOpenCommandId = 0x010B;
+        public const int ExpandSelectStarCommandId = 0x010C;
 
         private readonly SsmsSqlFormatterPackage _package;
 
@@ -47,6 +50,21 @@ namespace SsmsSqlFormatter
             commandService.AddCommand(new MenuCommand(ExecutePreviewFormat, new CommandID(CommandSet, PreviewFormatCommandId)));
             commandService.AddCommand(new MenuCommand(ExecuteBatchFormat, new CommandID(CommandSet, BatchFormatCommandId)));
             commandService.AddCommand(new MenuCommand(ExecuteFormatAllOpen, new CommandID(CommandSet, FormatAllOpenCommandId)));
+            commandService.AddCommand(new MenuCommand(ExecuteExpandSelectStar, new CommandID(CommandSet, ExpandSelectStarCommandId)));
+        }
+
+        /// <summary>
+        /// Best-effort column-lookup delegate backed by the active query window's own
+        /// connection (see Options/SsmsConnectionDiscovery.cs), or null if no connection
+        /// could be determined - callers treat that as "SELECT * expansion unavailable right
+        /// now" and either skip it (main Format command) or tell the user why (the dedicated
+        /// Expand SELECT * command).
+        /// </summary>
+        private static Func<string, string, string, System.Threading.Tasks.Task<List<string>>> BuildSelectStarColumnLookup()
+        {
+            string connectionString = SsmsConnectionDiscovery.TryGetActiveConnectionString();
+            if (connectionString == null) return null;
+            return (database, schema, table) => SqlSchemaLookup.GetColumnsAsync(connectionString, database, schema, table);
         }
 
         // Result sets queued by "Add Results as Sheet", exported together as one workbook.
@@ -828,7 +846,19 @@ namespace SsmsSqlFormatter
             }
             else
             {
-                result = ScriptDomFormatter.Format(original, general);
+                string toFormat = original;
+                if (general.ExpandSelectStar)
+                {
+                    var columnLookup = BuildSelectStarColumnLookup();
+                    if (columnLookup != null)
+                    {
+                        var expand = await SelectStarExpander.ExpandAsync(toFormat, columnLookup, CancellationToken.None).ConfigureAwait(true);
+                        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                        toFormat = expand.ExpandedSql;
+                    }
+                }
+
+                result = ScriptDomFormatter.Format(toFormat, general);
 
                 if (result.Success && result.CommentCount > 0 && general.WarnOnComments && general.CommentHandling == CommentHandling.Discard)
                 {
@@ -880,6 +910,123 @@ namespace SsmsSqlFormatter
                 }
 
                 SetStatus(dte, "Formatted (applied from preview).");
+            }
+            else
+            {
+                SetStatus(dte, "Preview closed without applying.");
+            }
+        }
+
+        private void ExecuteExpandSelectStar(object sender, EventArgs e)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            _ = _package.JoinableTaskFactory.RunAsync(async () =>
+            {
+                try
+                {
+                    await ExecuteExpandSelectStarCoreAsync();
+                }
+                catch (Exception ex)
+                {
+                    await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                    ShowError("Unexpected error: " + ex.Message);
+                }
+            });
+        }
+
+        /// <summary>
+        /// Standalone "Expand SELECT *" command - unlike the main Format command's
+        /// ExpandSelectStar option (which only folds expansion into a normal format pass),
+        /// this always attempts expansion regardless of that option or the selected
+        /// formatting engine, since it's an explicit, direct request. Always resolves via
+        /// the rule-based engine (expansion has nothing to do with AI vs rule-based
+        /// formatting), then runs the result through the normal rule-based styling pass and
+        /// shows it in the same preview/apply/undo-unit flow as ExecutePreviewCoreAsync.
+        /// </summary>
+        private async Task ExecuteExpandSelectStarCoreAsync()
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            var dte = (DTE2)await _package.GetServiceAsync(typeof(DTE));
+            var doc = dte?.ActiveDocument;
+            var textDoc = doc?.Object("TextDocument") as TextDocument;
+            if (textDoc == null)
+            {
+                ShowInfo("Open a query window first.");
+                return;
+            }
+
+            var selection = textDoc.Selection;
+            bool useSelection = selection != null && !selection.IsEmpty;
+            string original = useSelection
+                ? selection.Text
+                : textDoc.StartPoint.CreateEditPoint().GetText(textDoc.EndPoint);
+
+            if (string.IsNullOrWhiteSpace(original))
+            {
+                ShowInfo("Nothing to format.");
+                return;
+            }
+
+            var general = ResolveEffectiveGeneralOptions(_package.GetGeneralOptions(), doc?.FullName);
+
+            var columnLookup = BuildSelectStarColumnLookup();
+            if (columnLookup == null)
+            {
+                ShowInfo("Could not determine the active query window's connection, so SELECT * " +
+                         "could not be expanded. Make sure the query window is connected to a " +
+                         "database and try again.");
+                return;
+            }
+
+            SetStatus(dte, "Resolving table structure…");
+            var expand = await SelectStarExpander.ExpandAsync(original, columnLookup, CancellationToken.None).ConfigureAwait(true);
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            if (expand.ExpandedCount == 0)
+            {
+                if (expand.UnresolvedCount > 0)
+                    ShowInfo("Found SELECT * but couldn't resolve the referenced table/view structure " +
+                             "(not found, not accessible, or not a plain table/view) - left unchanged.");
+                else
+                    ShowInfo("No SELECT * found to expand.");
+                SetStatus(dte, "Expand SELECT * made no changes.");
+                return;
+            }
+
+            var expandResult = ScriptDomFormatter.Format(expand.ExpandedSql, general);
+            if (!expandResult.Success)
+            {
+                ShowError(expandResult.ErrorMessage ?? "Formatting failed.");
+                SetStatus(dte, "SQL formatting failed.");
+                return;
+            }
+
+            var expandPreview = new PreviewWindow(original, expandResult.FormattedSql);
+            var expandApplied = expandPreview.ShowDialog() == true;
+
+            if (expandApplied)
+            {
+                var toApply = expandPreview.FormattedText ?? expandResult.FormattedSql;
+                dte.UndoContext.Open("Expand SELECT *");
+                try
+                {
+                    if (useSelection)
+                    {
+                        selection.Insert(toApply, (int)vsInsertFlags.vsInsertFlagsContainNewText);
+                    }
+                    else
+                    {
+                        var start = textDoc.StartPoint.CreateEditPoint();
+                        start.ReplaceText(textDoc.EndPoint, toApply, (int)vsEPReplaceTextOptions.vsEPReplaceTextKeepMarkers);
+                    }
+                }
+                finally
+                {
+                    dte.UndoContext.Close();
+                }
+
+                SetStatus(dte, $"Expanded {expand.ExpandedCount} SELECT * (applied from preview).");
             }
             else
             {
@@ -947,7 +1094,19 @@ namespace SsmsSqlFormatter
             }
             else
             {
-                result = ScriptDomFormatter.Format(original, general);
+                string toFormat = original;
+                if (general.ExpandSelectStar)
+                {
+                    var columnLookup = BuildSelectStarColumnLookup();
+                    if (columnLookup != null)
+                    {
+                        var expand = await SelectStarExpander.ExpandAsync(toFormat, columnLookup, CancellationToken.None).ConfigureAwait(true);
+                        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                        toFormat = expand.ExpandedSql;
+                    }
+                }
+
+                result = ScriptDomFormatter.Format(toFormat, general);
 
                 if (result.Success && result.CommentCount > 0 && general.WarnOnComments && general.CommentHandling == CommentHandling.Discard)
                 {

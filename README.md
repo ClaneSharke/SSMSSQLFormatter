@@ -113,8 +113,27 @@ With text selected, only the selection is formatted; otherwise the whole documen
 
 **Tools → Options → SQL Formatter**
 
-- **General**: engine (RuleBased / Ai), style preset (Classic / Modern / Custom), keyword casing, indent size, semicolons, per-clause line breaks, multiline lists, alignment, comment handling (Inline / MoveToEnd / Discard) and comment warning.
+- **General**: engine (RuleBased / Ai), style preset (Classic / Modern / Custom), keyword casing, indent size, semicolons, per-clause line breaks, multiline lists, alignment, comment handling (Inline / MoveToEnd / Discard) and comment warning, **Expand SELECT \*** (off by default — see below).
 - **AI Engine**: provider (Anthropic / Copilot), API key or token, model, endpoint, max tokens, timeout, custom style instructions, "use General options as style guide", fallback to rule-based on error, confirm-before-send.
+
+### Expand SELECT *
+
+Replaces `SELECT *` (and `alias.*`) with an explicit, ordered column list resolved from the real
+table/view structure — using whatever database the active query window is already connected to,
+so there's nothing extra to configure. Anywhere it can't confidently resolve the source (a join to
+a CTE or derived table, a table it can't find or reach, an ambiguous unqualified name) it just
+leaves that `SELECT *` untouched, handled independently per occurrence — it never guesses.
+
+Two ways to use it:
+
+- Turn on **Expand SELECT \*** under Tools → Options → General to have it run automatically as
+  part of "Format T-SQL Script".
+- Or run **Tools → Expand SELECT \*** directly at any time, regardless of that setting — it shows
+  a preview before applying, same as Preview Format.
+
+Requires the query window to actually be connected to a database; if no connection can be
+determined, the command tells you so and nothing changes. Interactive only — never runs on
+format-on-save, format-on-paste, batch formatting, or from the CLI.
 
 ### AI engine notes
 
@@ -133,6 +152,7 @@ F5 launches the **Visual Studio experimental instance** (the manifest also targe
 - Rule-based engine: regenerates the script from the AST, which doesn't retain comments on its own. **Comment handling** (Tools → Options → General) controls what happens to them: `Inline` (default) re-attaches each comment to the code it was next to, `MoveToEnd` collects them all at the end of the script instead, and `Discard` drops them (you get a warning when comments are detected in that mode). The AI engine always preserves comments in place regardless of this setting.
 - Rule-based engine leaves the script untouched if it doesn't parse (you'll get the parse error with line/column — arguably a feature).
 - SQLCMD-mode scripts (`:setvar`, `:connect`) won't parse with ScriptDom; use the AI engine for those.
+- **Expand SELECT \*** only resolves plain base tables/views reachable through the query window's own connection — CTEs, derived tables, table-valued functions, temp tables, table variables, synonyms, and cross-server (4-part) names are left as `SELECT *`. SQL Server Authentication connections may not always be resolvable (Windows/Integrated Authentication is the reliable case); if the connection can't be determined at all, the command tells you and leaves the script untouched.
 - After a new major SSMS release, the manifest's `InstallationTarget` upper bound (`[21.0,23.0)`) may need bumping.
 
 ## Project layout
